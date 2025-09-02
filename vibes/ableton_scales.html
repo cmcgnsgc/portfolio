@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ableton Live Key & Scale Finder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@tonejs/midi"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        #drop-zone {
+            transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+        }
+        #drop-zone.dragover {
+            background-color: #404040;
+            border-color: #06b6d4;
+        }
+    </style>
+</head>
+<body class="bg-neutral-900 text-neutral-300 flex items-center justify-center min-h-screen py-8">
+
+    <div class="bg-neutral-800 shadow-2xl rounded-2xl p-8 md:p-12 w-full max-w-2xl mx-4">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-white mb-2">Ableton Live Key & Scale Finder</h1>
+            <p class="text-neutral-400">Upload a MIDI file to discover its musical key and scale.</p>
+        </header>
+
+        <main>
+            <!-- File Upload Area -->
+            <div id="drop-zone" class="border-2 border-dashed border-neutral-600 rounded-lg p-8 text-center cursor-pointer hover:border-cyan-500 hover:bg-neutral-700/50">
+                <input type="file" id="midi-file-input" class="hidden" accept=".mid,.midi">
+                <div class="flex flex-col items-center">
+                     <svg class="w-12 h-12 text-neutral-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" />
+                    </svg>
+                    <p class="text-neutral-400">
+                        <span class="font-semibold text-cyan-400">Click to upload</span> or drag and drop
+                    </p>
+                    <p class="text-xs text-neutral-500 mt-1">MIDI files (.mid or .midi)</p>
+                </div>
+            </div>
+
+            <!-- Status and Result Display -->
+            <div id="status-container" class="mt-6 text-center min-h-[7rem] flex flex-col justify-center">
+                <p id="filename-display" class="text-neutral-500">No file selected.</p>
+                <div id="loader" class="hidden mx-auto">
+                    <svg class="animate-spin h-8 w-8 text-cyan-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                     <p class="text-neutral-400 mt-2">Analyzing...</p>
+                </div>
+                <div id="result-container" class="hidden">
+                    <p class="text-lg text-neutral-400">The most likely key is:</p>
+                    <p class="text-4xl font-bold text-cyan-400 mt-1">
+                        <span id="result-key"></span>
+                        <span id="result-scale"></span>
+                    </p>
+                </div>
+                 <p id="error-message" class="hidden text-red-400"></p>
+            </div>
+
+             <!-- Additional Info Sections -->
+            <div id="additional-info" class="hidden mt-8 space-y-6">
+                <div id="equivalents-container" class="hidden">
+                     <h3 class="font-semibold text-lg text-neutral-100 mb-2">Equivalent Scales</h3>
+                     <p id="equivalents-text" class="text-neutral-400"></p>
+                </div>
+                <div id="supersets-container" class="hidden">
+                     <h3 class="font-semibold text-lg text-neutral-100 mb-2">Superset Scales</h3>
+                     <p id="supersets-text" class="text-neutral-400"></p>
+                </div>
+                <div id="subsets-container" class="hidden">
+                     <h3 class="font-semibold text-lg text-neutral-100 mb-2">Subset Scales</h3>
+                     <p id="subsets-text" class="text-neutral-400"></p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        const SCALE_DEFINITIONS = {
+            'Major': [0, 2, 4, 5, 7, 9, 11],'Minor': [0, 2, 3, 5, 7, 8, 10],'Dorian': [0, 2, 3, 5, 7, 9, 10],'Mixolydian': [0, 2, 4, 5, 7, 9, 10],'Lydian': [0, 2, 4, 6, 7, 9, 11],'Phrygian': [0, 1, 3, 5, 7, 8, 10],'Locrian': [0, 1, 3, 5, 6, 8, 10],'Whole Tone': [0, 2, 4, 6, 8, 10],'Half-whole Dim.': [0, 1, 3, 4, 6, 7, 9, 10],'Whole-half Dim.': [0, 2, 3, 5, 6, 8, 9, 11],'Minor Blues': [0, 3, 5, 6, 7, 10],'Major Pentatonic': [0, 2, 4, 7, 9],'Minor Pentatonic': [0, 3, 5, 7, 10],'Harmonic Minor': [0, 2, 3, 5, 7, 8, 11],'Harmonic Major': [0, 2, 4, 5, 7, 8, 11],'Dorian #4': [0, 2, 3, 6, 7, 9, 10],'Phrygian Dominant': [0, 1, 4, 5, 7, 8, 10],'Melodic Minor': [0, 2, 3, 5, 7, 9, 11],'Lydian Augmented': [0, 2, 4, 6, 8, 9, 11],'Lydian Dominant': [0, 2, 4, 6, 7, 9, 10],'Super Locrian': [0, 1, 3, 4, 6, 8, 10],'8-Tone Spanish': [0, 1, 4, 5, 7, 8, 9, 11],'Bhairav': [0, 1, 4, 5, 7, 8, 11],'Hungarian Minor': [0, 2, 3, 6, 7, 8, 11],'Hirajoshi': [0, 2, 3, 7, 8],'In-Sen': [0, 1, 5, 7, 10],'Iwato': [0, 1, 5, 6, 10],'Kumoi': [0, 2, 3, 7, 9],'Pelog Selisir': [0, 1, 3, 7, 8],'Pelog Tembung': [0, 1, 5, 7, 8],'Messiaen 3': [0, 2, 3, 4, 6, 7, 9, 10, 11],'Messiaen 4': [0, 1, 3, 6, 7, 8, 9, 11],'Messiaen 5': [0, 1, 5, 6, 9, 11],'Messiaen 6': [0, 2, 4, 6, 7, 9, 10, 11],'Messiaen 7': [0, 1, 3, 4, 6, 7, 8, 9, 10, 11]
+        };
+
+        // --- DOM Element References ---
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('midi-file-input');
+        const filenameDisplay = document.getElementById('filename-display');
+        const loader = document.getElementById('loader');
+        const resultContainer = document.getElementById('result-container');
+        const resultKey = document.getElementById('result-key');
+        const resultScale = document.getElementById('result-scale');
+        const errorMessage = document.getElementById('error-message');
+        const additionalInfo = document.getElementById('additional-info');
+        const equivalentsContainer = document.getElementById('equivalents-container');
+        const equivalentsText = document.getElementById('equivalents-text');
+        const supersetsContainer = document.getElementById('supersets-container');
+        const supersetsText = document.getElementById('supersets-text');
+        const subsetsContainer = document.getElementById('subsets-container');
+        const subsetsText = document.getElementById('subsets-text');
+        
+        // --- Event Listeners ---
+        dropZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && (file.name.endsWith('.mid') || file.name.endsWith('.midi'))) {
+                fileInput.files = e.dataTransfer.files;
+                handleFile(file);
+            } else {
+                displayError('Invalid file type. Please upload a .mid or .midi file.');
+            }
+        });
+
+        function handleFile(file) {
+            if (!file) return;
+            resetUI();
+            filenameDisplay.textContent = `Selected: ${file.name}`;
+            loader.classList.remove('hidden');
+            const reader = new FileReader();
+            reader.onload = e => {
+                try {
+                    const midi = new Midi(e.target.result);
+                    const analysis = analyzeMidi(midi);
+                    displayResult(analysis.results, analysis.midiPitches);
+                } catch (err) {
+                    console.error('Error parsing MIDI file:', err);
+                    displayError('Could not parse the MIDI file. It may be corrupted.');
+                } finally {
+                     loader.classList.add('hidden');
+                }
+            };
+            reader.onerror = () => {
+                displayError('Error reading the file.');
+                loader.classList.add('hidden');
+            };
+            reader.readAsArrayBuffer(file);
+        }
+        
+        function analyzeMidi(midi) {
+            // 1. Get unique pitch classes and duration-weighted histogram from MIDI
+            const midiPitches = new Set();
+            const histogram = new Array(12).fill(0);
+            let noteCount = 0;
+            midi.tracks.forEach(track => {
+                track.notes.forEach(note => {
+                    const pitchClass = note.midi % 12;
+                    midiPitches.add(pitchClass);
+                    histogram[pitchClass] += note.duration;
+                    noteCount++;
+                });
+            });
+
+            if (noteCount === 0) {
+                return { results: [{ key: 'N/A', scale: '(No notes found)'}], midiPitches: new Set() };
+            }
+
+            // 2. Score every possible scale
+            const allResults = [];
+            for (let root = 0; root < 12; root++) {
+                for (const scaleName in SCALE_DEFINITIONS) {
+                    const scaleIntervals = SCALE_DEFINITIONS[scaleName];
+                    const candidatePitches = new Set(scaleIntervals.map(i => (root + i) % 12));
+
+                    let inScaleAndInMidi = 0;
+                    let inMidiButNotInScale = 0;
+                    let inScaleButNotInMidi = 0;
+
+                    midiPitches.forEach(midiPitch => {
+                        if (candidatePitches.has(midiPitch)) {
+                            inScaleAndInMidi++;
+                        } else {
+                            inMidiButNotInScale++;
+                        }
+                    });
+
+                    candidatePitches.forEach(scalePitch => {
+                        if (!midiPitches.has(scalePitch)) {
+                            inScaleButNotInMidi++;
+                        }
+                    });
+
+                    const matchScore = inScaleAndInMidi - inMidiButNotInScale - inScaleButNotInMidi;
+                    
+                    const tonicScore = histogram[root];
+
+                    allResults.push({
+                        key: NOTE_NAMES[root],
+                        scale: scaleName,
+                        matchScore: matchScore,
+                        tonicScore: tonicScore
+                    });
+                }
+            }
+
+            // 3. Sort results: first by match score, then by tonic score as a tie-breaker
+            allResults.sort((a, b) => {
+                if (b.matchScore !== a.matchScore) {
+                    return b.matchScore - a.matchScore;
+                }
+                return b.tonicScore - a.tonicScore;
+            });
+
+            return { results: allResults, midiPitches: midiPitches };
+        }
+        
+        function getPitchClassSetString(key, scale) {
+            const scaleIntervals = SCALE_DEFINITIONS[scale];
+            const rootNoteIndex = NOTE_NAMES.indexOf(key);
+            if (!scaleIntervals || rootNoteIndex === -1) return null;
+            return scaleIntervals.map(i => (rootNoteIndex + i) % 12).sort((a, b) => a - b).join(',');
+        }
+
+        function resetUI() {
+            filenameDisplay.textContent = 'No file selected.';
+            filenameDisplay.classList.remove('hidden');
+            resultContainer.classList.add('hidden');
+            errorMessage.classList.add('hidden');
+            loader.classList.add('hidden');
+            additionalInfo.classList.add('hidden');
+            equivalentsText.textContent = '';
+            supersetsText.textContent = '';
+            subsetsText.textContent = '';
+        }
+
+        function displayResult(results, midiPitches) {
+            if (!results || results.length === 0) {
+                displayError('Could not determine key from MIDI file.');
+                return;
+            }
+
+            const bestResult = results[0];
+            resultKey.textContent = bestResult.key;
+            resultScale.textContent = bestResult.scale;
+            filenameDisplay.classList.add('hidden');
+            resultContainer.classList.remove('hidden');
+            
+            const bestPitchSet = getPitchClassSetString(bestResult.key, bestResult.scale);
+
+            // Display equivalents (scales with the same notes)
+            const equivalents = results.slice(1)
+                .filter(alt => getPitchClassSetString(alt.key, alt.scale) === bestPitchSet);
+
+            if (equivalents.length > 0) {
+                equivalentsText.textContent = `This scale has the same notes as: ${equivalents.map(e => `${e.key} ${e.scale}`).join(', ')}.`;
+                equivalentsContainer.classList.remove('hidden');
+            } else {
+                equivalentsContainer.classList.add('hidden');
+            }
+
+            // Display supersets (scales that contain all midi notes plus others)
+            const supersets = results.slice(1)
+                .filter(alt => {
+                    const altPitchSetString = getPitchClassSetString(alt.key, alt.scale);
+                    if (altPitchSetString === bestPitchSet) return false;
+
+                    const altPitches = new Set(altPitchSetString.split(',').map(Number));
+                    if (altPitches.size <= midiPitches.size) return false;
+
+                    for (const midiPitch of midiPitches) {
+                        if (!altPitches.has(midiPitch)) {
+                            return false;
+                        }
+                    }
+                    return true;
+                })
+                .slice(0, 4);
+
+            if (supersets.length > 0) {
+                supersetsText.textContent = `Scales that contain these notes: ${supersets.map(e => `${e.key} ${e.scale}`).join(', ')}.`;
+                supersetsContainer.classList.remove('hidden');
+            } else {
+                supersetsContainer.classList.add('hidden');
+            }
+
+            // Display subsets (scales that are contained within the midi notes)
+            const subsets = results.slice(1)
+                .filter(alt => {
+                     const altPitchSetString = getPitchClassSetString(alt.key, alt.scale);
+                    if (!altPitchSetString) return false;
+                    
+                    const altPitches = new Set(altPitchSetString.split(',').map(Number));
+                    if (altPitches.size >= midiPitches.size) return false;
+
+                    for (const altPitch of altPitches) {
+                        if (!midiPitches.has(altPitch)) {
+                            return false;
+                        }
+                    }
+                    return true;
+                })
+                .slice(0, 4);
+            
+            if (subsets.length > 0) {
+                subsetsText.textContent = `Scales contained within these notes: ${subsets.map(e => `${e.key} ${e.scale}`).join(', ')}.`;
+                subsetsContainer.classList.remove('hidden');
+            } else {
+                subsetsContainer.classList.add('hidden');
+            }
+
+
+            additionalInfo.classList.remove('hidden');
+        }
+
+        function displayError(message) {
+             filenameDisplay.classList.add('hidden');
+             loader.classList.add('hidden');
+             errorMessage.textContent = message;
+             errorMessage.classList.remove('hidden');
+             additionalInfo.classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
+
