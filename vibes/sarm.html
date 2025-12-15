@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <title>Folk Music Genres of South Asia</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <style>
+        body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        #map { height: 100vh; width: 100%; }
+        
+        .info-box {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            max-width: 300px;
+        }
+        .info-box h2 { margin-top: 0; font-size: 18px; color: #333; margin-bottom: 0; }
+        .info-box p { font-size: 14px; color: #666; }
+
+        /* Popup Styles */
+        .leaflet-popup-content-wrapper { border-radius: 8px; width: 320px; padding: 0; overflow: hidden; }
+        .leaflet-popup-content { margin: 0; width: 320px !important; }
+        
+        .popup-content-container {
+            padding: 15px;
+        }
+
+        .popup-genre { font-size: 18px; font-weight: bold; color: #d32f2f; margin-bottom: 5px; display: block; }
+        .popup-location { font-size: 12px; font-weight: bold; color: #555; margin-bottom: 10px; display: block; text-transform: uppercase; }
+        .popup-summary { font-size: 13px; color: #333; line-height: 1.4; display: block; text-align: justify; margin-bottom: 10px;}
+
+        /* Facade Video Player Styles */
+        .video-facade {
+            position: relative;
+            width: 100%;
+            height: 180px;
+            background-color: #000;
+            cursor: pointer;
+            overflow: hidden;
+            border-bottom-left-radius: 8px;
+            border-bottom-right-radius: 8px;
+        }
+        
+        .video-facade img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0.8;
+            transition: opacity 0.3s;
+        }
+
+        .video-facade:hover img {
+            opacity: 0.6;
+        }
+
+        .play-button {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60px;
+            height: 40px;
+            background-color: rgba(255, 0, 0, 0.8);
+            border-radius: 10px;
+            z-index: 5;
+            transition: background-color 0.2s;
+        }
+
+        .play-button::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border-style: solid;
+            border-width: 8px 0 8px 14px;
+            border-color: transparent transparent transparent white;
+        }
+
+        .video-facade:hover .play-button {
+            background-color: #ff0000;
+        }
+
+        iframe {
+            width: 100%;
+            height: 180px;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="info-box">
+    <h2>South Asian Regional Music</h2>
+</div>
+
+<div id="map"></div>
+
+<script>
+    // Define bounds for South Asia (approximate box covering Pakistan, India, Nepal, Bhutan, Bangladesh, Sri Lanka)
+    const southWest = L.latLng(5.0, 60.0);
+    const northEast = L.latLng(40.0, 100.0);
+    const bounds = L.latLngBounds(southWest, northEast);
+
+    // Initialize the map centered on India with strict bounds
+    const map = L.map('map', {
+        maxBounds: bounds,
+        maxBoundsViscosity: 1.0, // Makes the bounds rigid
+        minZoom: 4
+    }).setView([22.5937, 78.9629], 5);
+
+    // Add OpenStreetMap tile layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    // Data: Array of Folk Music Genres with Summaries and selected Video IDs
+    const musicData = [
+        // --- NEW ADDITIONS (User Request) ---
+        { state: "Sri Lanka", genre: "Koothu", loc: "Jaffna", lat: 9.6615, lng: 80.0255, videoId: "HGDLwSigmJ4", summary: "A traditional Tamil folk theatre form involving dance, music, and drama, often performed in a round stage (Vadda Kalari) throughout the night." },
+        { state: "Sri Lanka", genre: "Vanni Folk", loc: "Vavuniya", lat: 8.7542, lng: 80.4982, videoId: "_d1HfxvG6zA", summary: "Folk songs from the Vanni region, reflecting the rural life, harvest, and distinct cultural identity of the Tamil community in Northern Sri Lanka." },
+        { state: "Karnataka", genre: "Karaga", loc: "Bengaluru", lat: 12.9716, lng: 77.5946, videoId: "XUc53tWEWQs", summary: "A unique folk dance and festival dedicated to Draupadi, performed by the Tigala community, involving balancing a floral pyramid on the head." },
+        { state: "Karnataka", genre: "Hagalu Vesha", loc: "Ballari", lat: 15.1394, lng: 76.9214, videoId: "Y2OAauiHo1g", summary: "A folk art form where performers dress in various costumes and roam villages during the day, entertaining people with songs and acting." },
+        { state: "Andhra Pradesh", genre: "Chekka Bhajana", loc: "Chittoor", lat: 13.2172, lng: 79.1003, videoId: "NYUr7hEb-Rc", summary: "A rhythmic folk dance where performers sing devotional songs while striking wooden clappers (Chekka) in unison." },
+        { state: "Karnataka", genre: "Tatva Pada", loc: "Kalaburagi", lat: 17.3297, lng: 76.8343, videoId: "bW8rIpgcOHk", summary: "Songs of philosophy and spirituality, influenced by Sufi and Bhakti traditions, famously sung by saints like Shishunala Sharif." },
+        { state: "Pakistan", genre: "Zahirok", loc: "Nokkundi", lat: 28.8252, lng: 62.7533, videoId: "Evc4GaC1wRk", summary: "A melancholic genre of Balochi folk music expressing deep longing and separation, often accompanied by the Suroz or Doneli." },
+        { state: "Pakistan", genre: "Dehi", loc: "Washuk", lat: 27.8596, lng: 65.1706, videoId: "aPi0LziC2RI", summary: "A traditional Balochi folk song style often sung at weddings and celebrations, reflecting the joy and communal spirit of the region." },
+        { state: "Odisha", genre: "Rasarkeli", loc: "Barapali", lat: 21.1983, lng: 83.5855, videoId: "CR45CuLrSkY", summary: "A popular Sambalpuri folk song genre known for its romantic and playful lyrics, deeply rooted in the culture of Western Odisha." },
+
+        // --- PREVIOUS ADDITIONS ---
+        { state: "Madhya Pradesh", genre: "Matki", loc: "Bhopal", lat: 23.2599, lng: 77.4126, videoId: "uD1f7lIqkGc", summary: "A traditional folk dance of the Malwa region, performed by women balancing earthen pots (matki) on their heads to the beat of the Dhol." },
+        { state: "Madhya Pradesh", genre: "Karma", loc: "Jabalpur", lat: 23.1815, lng: 79.9864, videoId: "t8CY7j4b_Tw", summary: "A tribal dance performed by the Baiga and Gond tribes during the Karma festival, celebrating the planting of trees and the harvest." },
+        { state: "Maharashtra", genre: "Vasudev", loc: "Nashik", lat: 19.9975, lng: 73.7898, videoId: "SmT20Q6azdY", summary: "Folk artist tradition where the Vasudev roams villages singing devotional songs of Lord Krishna, wearing a distinctive peacock feather cap." },
+        { state: "Maharashtra", genre: "Jogwa", loc: "Chhatrapati Sambhaji Nagar", lat: 19.8762, lng: 75.3433, videoId: "aLeMkq1lgt8", summary: "A devotional folk song form where devotees of Goddess Yellamma (Jogtin) beg for alms (Jogwa) as a ritual to give up their ego." },
+        { state: "Uttar Pradesh", genre: "Rai", loc: "Jhansi", lat: 25.4484, lng: 78.5685, videoId: "lre2ROTa2g0", summary: "A popular folk dance of Bundelkhand performed by women (Bednis) to the fast beats of the Mridangam, historically patronized by royalty." },
+        { state: "Uttar Pradesh", genre: "Thumri", loc: "Lucknow", lat: 26.8467, lng: 80.9462, videoId: "LMTj6gGqYeo", summary: "A semi-classical vocal genre that originated in the royal courts of Lucknow and Varanasi, characterized by romantic and devotional lyrics." },
+        { state: "Rajasthan", genre: "Gavari", loc: "Udaipur", lat: 24.5854, lng: 73.7125, videoId: "LX9ZDbpOlF4", summary: "A 40-day mystical dance-drama ritual performed by the Bhil tribe, depicting the story of Lord Shiva and Bhasmasura." },
+        { state: "Maharashtra", genre: "Zadipatti", loc: "Nagpur", lat: 21.1458, lng: 79.0882, videoId: "JLeCvx8Ssg8", summary: "A popular folk theatre form from the Vidarbha region, performed during the harvest season, known for its live music and high-energy acting." },
+
+        // --- EXISTING DATA ---
+        // Andhra Pradesh
+        { state: "Andhra Pradesh", genre: "Burra Katha", loc: "Guntur", lat: 16.3067, lng: 80.4365, videoId: "KnqNOYaxYTI", summary: "A theatrical storytelling technique from the Jangam community, featuring a main storyteller playing the tambura and two assistants playing gummeta drums." },
+        { state: "Andhra Pradesh", genre: "Jangam Katha", loc: "Srisailam", lat: 16.0740, lng: 78.8780, videoId: "Z8QFipX46TA", summary: "Narrative songs performed by wandering Jangam ascetics, focusing on the stories of Lord Shiva and social issues, often accompanied by bells and percussion." },
+        { state: "Andhra Pradesh", genre: "Hari Katha", loc: "Tirupati", lat: 13.6288, lng: 79.4192, videoId: "EeqVWPAZzAI", summary: "A composite art form comprising storytelling, poetry, music, drama, dance, and philosophy, traditionally used to narrate Hindu mythology." },
+        { state: "Andhra Pradesh", genre: "Tappeta Gullu", loc: "Srikakulam", lat: 18.3000, lng: 83.9000, videoId: "GsgVMfLVqAc", summary: "A folk dance performed by shepherds and cowherds to appease the Rain God, involving acrobatic feats while playing flat drums called Tappeta Gullu." },
+        { state: "Andhra Pradesh", genre: "Kolatam", loc: "Vijayawada", lat: 16.5062, lng: 80.6480, videoId: "sdTy4mE-NjA", summary: "A stick dance performed by groups moving in circles, striking small wooden sticks to the rhythm of songs, often narrating Krishna's stories." },
+        
+        // Arunachal Pradesh
+        { state: "Arunachal Pradesh", genre: "Ja-Jin-Ja", loc: "Pasighat", lat: 28.0667, lng: 95.3259, videoId: "YiouE0EMJcA", summary: "A celebratory song sung during marriages and social meets by both men and women, often in a chorus that grows as others join in." },
+        { state: "Arunachal Pradesh", genre: "Baryi", loc: "Aalo (Along)", lat: 28.1700, lng: 94.8000, videoId: "5bVd9cpy1kc", summary: "A narrative song cycle that recounts history, religious lore, and mythology, often taking hours to complete during important festivals." },
+        { state: "Arunachal Pradesh", genre: "Aji Lamu", loc: "Tawang", lat: 27.5860, lng: 91.8590, videoId: "_dHq8-7ATpE", summary: "A folk dance of the Monpa tribe depicting the battle between good and evil, performed with animal masks and distinctive costumes." },
+        { state: "Arunachal Pradesh", genre: "Ponung", loc: "East Siang", lat: 28.0700, lng: 95.3300, videoId: "M-A5AdeFnMw", summary: "A dance performed by women of the Adi tribe during the Solung festival, led by a Miri (singer) who sings about the origin of crops." },
+        { state: "Arunachal Pradesh", genre: "Nitom", loc: "Itanagar", lat: 27.0844, lng: 93.6053, videoId: "PD8gsh7NiXk", summary: "Traditional folk songs that cover various themes from love and nature to social wisdom, integral to the daily life of many Arunachali tribes." },
+
+        // Assam
+        { state: "Assam", genre: "Bihu", loc: "Sivasagar", lat: 26.9800, lng: 94.6300, videoId: "sQ5Y52Wm1Js", summary: "The most popular folk music of Assam, performed during the Bihu festivals with rapid drumming on the Dhol, Pepa (horn), and energetic dancing." },
+        { state: "Assam", genre: "Borgeet", loc: "Barpeta", lat: 26.3200, lng: 91.0000, videoId: "zjSV6cbCqxw", summary: "Devotional songs composed by Srimanta Sankardeva and Madhavdeva in the 15th-16th centuries, sung in the Brajavali language in Sattras." },
+        { state: "Assam", genre: "Tokari Geet", loc: "North Lakhimpur", lat: 27.2300, lng: 94.1000, videoId: "6MwR_RKLRSM", summary: "Folk songs accompanied by the Tokari, a single-stringed instrument, often dealing with philosophical themes and stories from the epics." },
+        { state: "Assam", genre: "Goalparia Lokogeet", loc: "Goalpara", lat: 26.1700, lng: 90.6200, videoId: "oOjyPdPmOrw", summary: "Folk songs from the Goalpara region, known for their distinct dialect and lyrical themes centered on the life of elephant mahouts and river culture." },
+        { state: "Assam", genre: "Zikir", loc: "Jorhat", lat: 26.7509, lng: 94.2037, videoId: "Izsmzo_rwkc", summary: "Islamic devotional songs composed by Ajan Fakir that blend Islamic teachings with indigenous Assamese musical traditions and metaphors." },
+
+        // Bihar
+        { state: "Bihar", genre: "Kajri", loc: "Bhojpur", lat: 25.4600, lng: 84.5200, videoId: "GXiK3B7nXXw", summary: "Songs sung during the monsoon season (Shravan), expressing a woman's longing for her husband as the black monsoon clouds gather." },
+        { state: "Bihar", genre: "Sohar", loc: "Patna", lat: 25.5941, lng: 85.1376, videoId: "KBYY1QICfYM", summary: "Ceremonial songs sung to celebrate the birth of a child, traditionally comparing the newborn to Lord Rama or Krishna." },
+        { state: "Bihar", genre: "Jat-Jatin", loc: "Darbhanga", lat: 26.1500, lng: 85.9000, videoId: "eez0FrBVjvQ", summary: "A folk dance-drama performed by women on moonlit nights, depicting the story of lovers Jat and Jatin and addressing social issues like natural calamities." },
+        { state: "Bihar", genre: "Sumangali", loc: "Gaya", lat: 24.7914, lng: 85.0002, videoId: "FXaIriSpG9I", summary: "Wedding songs sung by women during marriage ceremonies to invoke blessings for the couple's prosperous life." },
+        { state: "Bihar", genre: "Birha", loc: "Buxar", lat: 25.5600, lng: 83.9800, videoId: "GnzKDUWUoR8", summary: "A folk genre originally sung by the Ahir caste, expressing the pain of separation and longing, which has evolved to include social commentary." },
+
+        // Chhattisgarh
+        { state: "Chhattisgarh", genre: "Pandavani", loc: "Bhilai", lat: 21.1938, lng: 81.3509, videoId: "CCzPF1VVTi4", summary: "A narration of stories from the Mahabharata, specifically the Pandavas, performed with a Tambura by a lead artist (like Teejan Bai) and a chorus." },
+        { state: "Chhattisgarh", genre: "Bharthari", loc: "Bilaspur", lat: 22.0797, lng: 82.1401, videoId: "MQt9CAHEDp4", summary: "Folk ballads narrating the life and renunciation of King Bharthari, often sung by the Nath community with a Sarangi or Ektara." },
+        { state: "Chhattisgarh", genre: "Chandaini", loc: "Dantewada", lat: 18.9000, lng: 81.3500, videoId: "6kii6wnuGGw", summary: "A romantic folk ballad recounting the love story of Lorik and Chanda, performed through songs and dances in a folk theater style." },
+        { state: "Chhattisgarh", genre: "Raut Nacha", loc: "Korba", lat: 22.3500, lng: 82.6800, videoId: "kuErwk181II", summary: "A dance performed by the Yadav community during Diwali, resembling Krishna's Raas Leela, celebrating their heritage as cowherds." },
+        { state: "Chhattisgarh", genre: "Sohar (CG)", loc: "Raipur", lat: 21.2514, lng: 81.6296, videoId: "KBYY1QICfYM", summary: "Similar to Bihar, these are celebratory songs sung by women upon the birth of a child, filled with blessings and joy." },
+
+        // Goa
+        { state: "Goa", genre: "Mando", loc: "Margao", lat: 15.2832, lng: 73.9862, videoId: "qHyxkfbz9uY", summary: "A unique fusion of Goan folk and Western musical traditions, usually a love song comprising slow, sentimental verses followed by a faster beat." },
+        { state: "Goa", genre: "Dulpod", loc: "Panaji", lat: 15.4909, lng: 73.8278, videoId: "Rpqv5uGZc2M", summary: "Fast-paced songs describing everyday Goan life, often sung after a Mando to lift the mood with witty and social lyrics." },
+        { state: "Goa", genre: "Deknni", loc: "Ponda", lat: 15.4000, lng: 74.0200, videoId: "sTvtaidQUes", summary: "A semi-classical song and dance form performed by Christian women, depicting the life of a Hindu 'Devdasi' girl offering prayers." },
+        { state: "Goa", genre: "Ovi", loc: "Vasco da Gama", lat: 15.3900, lng: 73.8100, videoId: "vOP4hMZPJGw", summary: "Songs sung by women while performing household chores like grinding grain, or during weddings, covering themes of family and mythology." },
+        { state: "Goa", genre: "Banvarh", loc: "Mapusa", lat: 15.6000, lng: 73.8100, videoId: "SJYZgeFzb-s", summary: "A mournful song sung by Hindus on the day of cremation, expressing grief and the tragedy of death." },
+
+        // Gujarat
+        { state: "Gujarat", genre: "Garba", loc: "Vadodara", lat: 22.3072, lng: 73.1812, videoId: "Xglg5xIHL6A", summary: "A devotional dance performed around a lamp or Goddess Shakti during Navratri, involving circular movements and rhythmic clapping." },
+        { state: "Gujarat", genre: "Dandiya Raas", loc: "Ahmedabad", lat: 23.0225, lng: 72.5714, videoId: "Md_JKr5SV6M", summary: "An energetic dance where men and women strike wooden sticks (dandiyas) in rhythmic patterns, symbolizing the mock fight of Goddess Durga." },
+        { state: "Gujarat", genre: "Sugam Sangeet", loc: "Rajkot", lat: 22.3039, lng: 70.8022, videoId: "6Vj8WCpZg4g", summary: "A genre of light classical vocal music that emphasizes poetry and melody, popularizing Gujarati literature through song." },
+        { state: "Gujarat", genre: "Dayro", loc: "Junagadh", lat: 21.5222, lng: 70.4579, videoId: "V0pb7UOIbAs", summary: "A traditional gathering for storytelling and folk singing, where artists narrate historical and religious tales interspersed with humor and wisdom." },
+        { state: "Gujarat", genre: "Halaji", loc: "Bhuj", lat: 23.2420, lng: 69.6669, videoId: "fZeMw2sjRzI", summary: "Folk songs from the Kutch region, often reflecting the desert life, valor, and distinct cultural identity of the Kutchi people." },
+
+        // Haryana
+        { state: "Haryana", genre: "Ragini", loc: "Rohtak", lat: 28.8955, lng: 76.6066, videoId: "ZNQAujPzWqs", summary: "A popular form of folk theater music consisting of a song that tells a story, often with mythological or social themes, integral to Saang." },
+        { state: "Haryana", genre: "Saang", loc: "Sonipat", lat: 28.9900, lng: 77.0100, videoId: "fl_yEQHgvA4", summary: "An open-air folk theatre tradition combining dance, music, and mimicry to narrate legends and folklore, performed on a raised platform." },
+        { state: "Haryana", genre: "Khoria", loc: "Jind", lat: 29.3100, lng: 76.3100, videoId: "mVBiAlZPtBc", summary: "A dance performed by women during weddings while the men's procession has left, featuring mime and dance to keep the spirits high." },
+        { state: "Haryana", genre: "Phag", loc: "Kaithal", lat: 29.8000, lng: 76.4000, videoId: "si0QODxHY_s", summary: "A seasonal dance performed by farmers in the month of Phalguna (Feb-March) to celebrate the harvest and the festival of Holi." },
+        { state: "Haryana", genre: "Rasa Lila", loc: "Faridabad", lat: 28.4089, lng: 77.3178, videoId: "bjyUnjQmAnk", summary: "A dance drama enacting the flirtatious and divine play of Lord Krishna with the Gopis, popular in regions bordering Braj." },
+
+        // Himachal Pradesh
+        { state: "Himachal Pradesh", genre: "Jhoori", loc: "Shimla", lat: 31.1048, lng: 77.1734, videoId: "hQB2Ge7D-v4", summary: "Songs celebrating extra-marital romance and love, often accompanied by a female dance called Jhoomar, popular in Sirmaur and Mahasu." },
+        { state: "Himachal Pradesh", genre: "Laman", loc: "Kullu", lat: 31.9579, lng: 77.1095, videoId: "LMAV-xLae44", summary: "Romantic songs from the Kullu Valley, sung as a dialogue between lovers, often expressing emotions that cannot be spoken directly." },
+        { state: "Himachal Pradesh", genre: "Ainchaliyan", loc: "Chamba", lat: 32.5534, lng: 76.1258, videoId: "KdxvLo-csfI", summary: "Religious songs sung at the bride's house after a wedding or by women at the home of an unmarried girl, often narrating divine marriages." },
+        { state: "Himachal Pradesh", genre: "Chhinj", loc: "Mandi", lat: 31.5892, lng: 76.9182, videoId: "P0xeMFCvz_w", summary: "Songs associated with wrestling fairs (Chhinj), celebrating strength and community gathering in the lower hills." },
+        { state: "Himachal Pradesh", genre: "Nati", loc: "Solan", lat: 30.9084, lng: 77.0999, videoId: "QtF94rq3Z9w", summary: "The most famous dance and music of Himachal, holding a Guinness Record for largest folk dance, performed in a slow, swaying circle." },
+
+        // Jharkhand
+        { state: "Jharkhand", genre: "Jhumar", loc: "Ranchi", lat: 23.3441, lng: 85.3096, videoId: "G5h5AFucgOU", summary: "A community dance and song performed during harvest seasons and festivals, named after the 'Jhum' (swaying) movement of the dancers." },
+        { state: "Jharkhand", genre: "Domkach", loc: "Hazaribagh", lat: 23.9900, lng: 85.3700, videoId: "v3tpExUhmQs", summary: "A folk dance performed by the family of the bridegroom after the baraat has left, involving mockery, satire, and humor." },
+        { state: "Jharkhand", genre: "Fagua", loc: "Dhanbad", lat: 23.7900, lng: 86.4300, videoId: "rmqBmZxNvo0", summary: "Songs sung during the festival of Holi (Phag), celebrating colors, spring, and mythological stories with energetic rhythms." },
+        { state: "Jharkhand", genre: "Udasi", loc: "Dumka", lat: 24.2600, lng: 87.2500, videoId: "rmqBmZxNvo0", summary: "Melancholic songs sung during the summer when the heat is oppressive, reflecting a mood of quietness and solitude." },
+        { state: "Jharkhand", genre: "Pawas", loc: "Bokaro", lat: 23.6700, lng: 85.9300, videoId: "rmqBmZxNvo0", summary: "Songs sung during the rainy season, capturing the beauty of the monsoon and the emotions associated with rain." },
+
+        // Karnataka
+        { state: "Karnataka", genre: "Bhavageete", loc: "Mysuru", lat: 12.2958, lng: 76.6394, videoId: "uxb7KWSslR4", summary: "A genre of expressionist poetry set to light music, bridging the gap between classical and folk, focusing on emotional depth." },
+        { state: "Karnataka", genre: "Janapada Geete", loc: "Dharwad", lat: 15.4600, lng: 75.0100, videoId: "MiuMJzCmMOY", summary: "Traditional rural folk songs passed down orally, covering every aspect of village life, agriculture, and local deities." },
+        { state: "Karnataka", genre: "Dollu Kunitha", loc: "Shivamogga", lat: 13.9299, lng: 75.5681, videoId: "MLZn6TAol30", summary: "A powerful drum dance performed by men of the Kuruba community, singing praises of Lord Beereshwara while beating large Dollu drums." },
+        { state: "Karnataka", genre: "Yakshagana", loc: "Udupi", lat: 13.3409, lng: 74.7421, videoId: "ua9cmooDHjU", summary: "A traditional theatre form combining dance, music, dialogue, and elaborate costumes, enacting stories from the Ramayana and Mahabharata." },
+        { state: "Karnataka", genre: "Veeragase", loc: "Chikkamagaluru", lat: 13.3153, lng: 75.7754, videoId: "B76748AMB9s", summary: "A vigorous dance performed by Jangamas, involving piercing rituals and recounting the story of Daksha Yajna and Veerabhadra." },
+
+        // Kerala
+        { state: "Kerala", genre: "Nadan Pattu", loc: "Thrissur", lat: 10.5276, lng: 76.2144, videoId: "0j9vzFWYzzQ", summary: "The umbrella term for Kerala's folk songs, comprising harvest songs, lullabies, and ballads depicting the agrarian past." },
+        { state: "Kerala", genre: "Mappila Pattu", loc: "Kozhikode", lat: 11.2588, lng: 75.7804, videoId: "XNnkSW0riRY", summary: "Folk songs of the Muslim community in Malabar, sung in a distinct Arabi-Malayalam dialect, covering devotional and heroic themes." },
+        { state: "Kerala", genre: "Vanchipattu", loc: "Alappuzha", lat: 9.4981, lng: 76.3388, videoId: "5nyFfZnsyNY", summary: "Fast-rhythm boat songs sung by oarsmen during the famous snake boat races (Vallam Kali) to maintain rowing synchronization." },
+        { state: "Kerala", genre: "Pulluvan Pattu", loc: "Palakkad", lat: 10.7867, lng: 76.6548, videoId: "hr41pSiP77o", summary: "Songs sung by the Pulluvar community to worship snake gods, accompanied by a one-stringed violin (Pulluvan Veena) and an earthen pot." },
+        { state: "Kerala", genre: "Oppana", loc: "Malappuram", lat: 11.0510, lng: 76.0711, videoId: "SepNry6tqiY", summary: "A bridal group dance and song form of the Mappila community, performed the day before the wedding with clapping and singing." },
+
+        // Madhya Pradesh
+        { state: "Madhya Pradesh", genre: "Alha", loc: "Maihar", lat: 24.2700, lng: 80.7500, videoId: "45tytu8aLPI", summary: "Heroic ballads originating from Bundelkhand, narrating the brave feats of the warrior brothers Alha and Udal." },
+        { state: "Madhya Pradesh", genre: "Pai", loc: "Gwalior", lat: 26.2183, lng: 78.1828, videoId: "ZaBWF5qwXvE", summary: "Associated with the Saira dance, these songs and dances involve small sticks and are performed during the rainy season to celebrate harvest." },
+        { state: "Madhya Pradesh", genre: "Nirguni Bhajan", loc: "Ujjain", lat: 23.1793, lng: 75.7849, videoId: "Umcw3LsWBYI", summary: "Devotional songs from the Malwa region following the Nirguni tradition (formless God), deeply influenced by Kabir's philosophy." },
+        { state: "Madhya Pradesh", genre: "Mach", loc: "Indore", lat: 22.7196, lng: 75.8577, videoId: "BcGFKbqpHE0", summary: "A folk theatre form of Malwa, where stories are conveyed exclusively through songs and music, known for its high-pitched singing." },
+        { state: "Madhya Pradesh", genre: "Sant Singaji", loc: "Khandwa", lat: 21.8200, lng: 76.3500, videoId: "pIWBPEG_yZc", summary: "Devotional songs dedicated to Sant Singaji, a poet-saint of Nimar, sung by farmers to pray for good monsoons and cattle health." },
+
+        // Maharashtra
+        { state: "Maharashtra", genre: "Lavani", loc: "Pune", lat: 18.5204, lng: 73.8567, videoId: "DowhhfP11UU", summary: "A popular genre combining song and dance, performed to the beats of the Dholki, known for its powerful rhythm and often sensual lyrics." },
+        { state: "Maharashtra", genre: "Powada", loc: "Raigad Fort", lat: 18.2300, lng: 73.4400, videoId: "xBNe0ICLbIU", summary: "A ballad form used to narrate historical events and heroic deeds, particularly the life and battles of Chhatrapati Shivaji Maharaj." },
+        { state: "Maharashtra", genre: "Bharud", loc: "Pandharpur", lat: 17.6700, lng: 75.3300, videoId: "9TJphGbz_vc", summary: "A folk art form used by Saint Eknath to spread religious and moral messages through dramatic poems and songs with double meanings." },
+        { state: "Maharashtra", genre: "Gondhal", loc: "Tuljapur", lat: 18.0100, lng: 76.0800, videoId: "x1OKYG0EdYw", summary: "A dramatic narration and musical performance dedicated to Goddess Ambabai or Bhavani, typically performed at weddings and auspicious events." },
+        { state: "Maharashtra", genre: "Abhang", loc: "Alandi", lat: 18.6700, lng: 73.8900, videoId: "ufLCGbxIjsg", summary: "Devotional poetry sung in praise of Lord Vithoba, popularized by saints like Tukaram and Namdev, forming the core of the Warkari tradition." },
+
+        // Manipur
+        { state: "Manipur", genre: "Khongjom Parba", loc: "Khongjom", lat: 24.5000, lng: 94.0200, videoId: "A2Fer9bKMnw", summary: "A musical narration ballad style that recounts the heroic battle of Khongjom (1891) against the British, sung while playing a Dholak." },
+        { state: "Manipur", genre: "Nata Sankirtana", loc: "Imphal West", lat: 24.8170, lng: 93.9368, videoId: "bjyUnjQmAnk", summary: "A classical-folk fusion of ritual singing, drumming, and dancing performed in temples to mark life cycle events, recognized by UNESCO." },
+        { state: "Manipur", genre: "Lai Haraoba", loc: "Moirang", lat: 24.4900, lng: 93.7700, videoId: "vLTgwU8fxD0", summary: "An ancient ritualistic festival celebrating the creation of the universe and local deities through dance and song, pre-dating Hinduism." },
+        { state: "Manipur", genre: "Pena", loc: "Imphal East", lat: 24.8200, lng: 93.9500, videoId: "yG9PrIesoLU", summary: "Music centered around the Pena, an ancient mono-string instrument, used to accompany folk ballads and rituals." },
+        { state: "Manipur", genre: "Khullang Eshei", loc: "Thoubal", lat: 24.6300, lng: 94.0100, videoId: "9eNxdxM2IvM", summary: "Folk songs sung by lovers or workers in the field, characterized by their lyrical expression of love and nature." },
+
+        // Meghalaya
+        { state: "Meghalaya", genre: "Phawar", loc: "Shillong", lat: 25.5788, lng: 91.8933, videoId: "IWAKOx1kwwU", summary: "Khasi folk songs often chanted in a series of couplets, covering themes of nature, hunting, and local folklore." },
+        { state: "Meghalaya", genre: "Jingrwai Iawbei", loc: "Cherrapunji (Sohra)", lat: 25.2700, lng: 91.7300, videoId: "ijzIk75bsNM", summary: "Traditional songs composed in honor of the clan ancestress (Iawbei), reflecting the matrilineal culture of the Khasi people." },
+        { state: "Meghalaya", genre: "Doro", loc: "Tura", lat: 25.5100, lng: 90.2200, videoId: "6dUDDztUnTY", summary: "A traditional folk song genre of the Garo tribe, often sung during festivals and community gatherings." },
+        { state: "Meghalaya", genre: "Ahoia", loc: "Jowai", lat: 25.4300, lng: 92.2000, videoId: "7tq3PoByzxs", summary: "Songs sung during the colourful Behdienkhlam festival by the Pnar people, celebrating the harvest and chasing away plague." },
+        { state: "Meghalaya", genre: "Rere", loc: "Nongstoin", lat: 25.5200, lng: 91.2700, videoId: "08RLM1n4maU", summary: "A genre of folk tunes often associated with the Khasi tribe, expressing simple joys and sorrows of hill life." },
+
+        // Mizoram
+        { state: "Mizoram", genre: "Cheraw", loc: "Aizawl", lat: 23.7271, lng: 92.7176, videoId: "qD_vYTs9GwI", summary: "The famous Bamboo Dance where men rhythmically clap bamboos while women dance in between steps, requiring great skill and timing." },
+        { state: "Mizoram", genre: "Chai", loc: "Lunglei", lat: 22.8800, lng: 92.7300, videoId: "TDXJwsDBZ_8", summary: "A community dance performed during the Chapchar Kut festival where men and women form a circle and sing in a chorus." },
+        { state: "Mizoram", genre: "Khuallam", loc: "Champhai", lat: 23.4700, lng: 93.3200, videoId: "p_vfzRb2e6A", summary: "The 'Dance of the Guests,' performed by men wearing traditional striped clothes, swaying to the sound of gongs and drums." },
+        { state: "Mizoram", genre: "Zai", loc: "Serchhip", lat: 23.3300, lng: 92.8300, videoId: "YXTbbvZht60", summary: "Traditional Mizo folk songs that carry the oral history, legends, and social values of the community." },
+        { state: "Mizoram", genre: "Chheih Lam", loc: "Kolasib", lat: 24.2300, lng: 92.6700, videoId: "bxvnfsYMW8U", summary: "A dance performed over a round of rice beer, where lyrics are often improvised to suit the occasion, accompanied by squatting dance moves." },
+
+        // Nagaland
+        { state: "Nagaland", genre: "Heliamleu", loc: "Kohima", lat: 25.6701, lng: 94.1077, videoId: "zfS-Kn0p2MI", summary: "A dancing song style of the Zeliang tribe, often romantic in nature and composed by both young and old." },
+        { state: "Nagaland", genre: "Hereileu", loc: "Dimapur", lat: 25.9000, lng: 93.7300, videoId: "I72bXPkeiDg", summary: "War songs sung by the elderly to narrate their past achievements in battle and bravery." },
+        { state: "Nagaland", genre: "Neuleu", loc: "Mokokchung", lat: 26.3200, lng: 94.5200, videoId: "Lay0jYhIIdU", summary: "Legendary songs composed by the older generation to describe significant historical events or famous figures." },
+        { state: "Nagaland", genre: "Hekialeu", loc: "Phek", lat: 25.6600, lng: 94.4700, videoId: "zfS-Kn0p2MI", summary: "Songs sung by old people recalling their youthful days, or sometimes a duet between the old and young generations." },
+        { state: "Nagaland", genre: "Tati", loc: "Wokha", lat: 26.1000, lng: 94.2600, videoId: "ef0OyP3B5t8", summary: "Songs accompanied by the Tati, a one-stringed instrument, popular among the Chakhesang and Angami tribes for folk ballads." },
+
+        // Odisha
+        { state: "Odisha", genre: "Sambalpuri", loc: "Sambalpur", lat: 21.4669, lng: 83.9812, videoId: "4a9D83hwPzo", summary: "A rhythmic and vibrant folk style from Western Odisha, featuring the powerful beats of the Dhol, Nishan, and Tasha." },
+        { state: "Odisha", genre: "Dalkhai", loc: "Balangir", lat: 20.7200, lng: 83.4800, videoId: "caR0UxSw060", summary: "A popular folk dance performed by women during the Bhai Juntia festival, addressing 'Dalkhai' (Goddess) in the song lyrics." },
+        { state: "Odisha", genre: "Ghumura", loc: "Kalahandi", lat: 19.9000, lng: 83.1600, videoId: "HIN3jXVGzcU", summary: "Originally a war dance, now a folk art where male dancers play the Ghumura drum (pitcher-shaped) while performing intricate steps." },
+        { state: "Odisha", genre: "Chhau", loc: "Baripada", lat: 21.9300, lng: 86.7300, videoId: "kXjxR4cekOQ", summary: "A semi-classical martial dance form (Mayurbhanj style) known for its vigorous movements and mock combat techniques without masks." },
+        { state: "Odisha", genre: "Pala", loc: "Cuttack", lat: 20.4625, lng: 85.8828, videoId: "zwVGIuA5O7M", summary: "A ballad singing tradition mixing Odia and Sanskrit, promoting the cult of Satyanarayan, performed by a Gayak (singer) and chorus." },
+
+        // Punjab
+        { state: "Punjab", genre: "Bhangra", loc: "Ludhiana", lat: 30.9010, lng: 75.8573, videoId: "7PlAuLeMIpc", summary: "A high-energy harvest dance and music genre performed by men to the beat of the Dhol, originating from the Vaisakhi celebrations." },
+        { state: "Punjab", genre: "Giddha", loc: "Bathinda", lat: 30.2100, lng: 74.9500, videoId: "0iVIazAwNDw", summary: "The female counterpart to Bhangra, focusing on graceful movements, clapping, and Bolis (couplets) teasing social scenarios." },
+        { state: "Punjab", genre: "Jugni", loc: "Amritsar", lat: 31.6340, lng: 74.8723, videoId: "Y6Y8ViNattw", summary: "A spiritual and folk verse form where 'Jugni' is a metaphor for the spirit of life or a female observer, often used in Sufi music." },
+        { state: "Punjab", genre: "Tappe", loc: "Jalandhar", lat: 31.3260, lng: 75.5762, videoId: "Swe_EyipdGE", summary: "Folk songs typically sung by women, often rhyming and unmetered, sung in a call-and-response format during weddings." },
+        { state: "Punjab", genre: "Mahaiya", loc: "Patiala", lat: 30.3398, lng: 76.3869, videoId: "TRJ2yjns4SI", summary: "Short folk lyrics addressing a beloved (Mahi), expressing love, separation, and the pain of longing." },
+
+        // Rajasthan
+        { state: "Rajasthan", genre: "Maand", loc: "Jaisalmer", lat: 26.9157, lng: 70.9083, videoId: "gJbAM4sN2c4", summary: "A sophisticated style of folk singing that developed in royal courts, famously known for the song 'Kesariya Balam'." },
+        { state: "Rajasthan", genre: "Panihari", loc: "Bikaner", lat: 28.0229, lng: 73.3119, videoId: "8rsTjHU-HGg", summary: "Songs sung by women fetching water from wells, romantically describing the scarcity of water and their daily struggles." },
+        { state: "Rajasthan", genre: "Manganiyar", loc: "Barmer", lat: 25.7500, lng: 71.4000, videoId: "bD7Xq6sVjpY", summary: "A hereditary community of Muslim musicians who perform folk music with the Kamaicha, dedicated to their Hindu patrons." },
+        { state: "Rajasthan", genre: "Langa", loc: "Jodhpur", lat: 26.2389, lng: 73.0243, videoId: "EXhCImnyCa8", summary: "Another musician community known for playing the Sarangi and Algoza, singing Sufi poetry and heroic ballads." },
+        { state: "Rajasthan", genre: "Kalbelia", loc: "Pushkar", lat: 26.4800, lng: 74.5500, videoId: "hF3NYeX68H0", summary: "The 'Snake Charmer' dance and music, characterized by sensuous movements and black costumes, recognized by UNESCO." },
+
+        // Sikkim
+        { state: "Sikkim", genre: "Tamang Selo", loc: "Gangtok", lat: 27.3314, lng: 88.6138, videoId: "nXetf_FyIw4", summary: "Folk songs of the Tamang community accompanied by the Damphu drum, reflecting the joy and sorrow of hill life." },
+        { state: "Sikkim", genre: "Deusi-Bhailo", loc: "Namchi", lat: 27.1700, lng: 88.3500, videoId: "4acgCa6fGUY", summary: "Carol-like songs sung by groups during the Tihar (Diwali) festival, visiting houses to give blessings and receive gifts." },
+        { state: "Sikkim", genre: "Chyabrung", loc: "Geyzing", lat: 27.2800, lng: 88.2300, videoId: "oow_buk0DDA", summary: "A traditional Limbu drum dance performed during housewarming or festivals to ward off evil spirits." },
+        { state: "Sikkim", genre: "Gha To Kito", loc: "Mangan", lat: 27.5000, lng: 88.5300, videoId: "59BlEX99hlI", summary: "A Bhutia folk dance song celebrating the natural beauty of Sikkim and its sacred places." },
+        { state: "Sikkim", genre: "Dhan Nach", loc: "Pakyong", lat: 27.2400, lng: 88.5800, videoId: "tE84pBV24C0", summary: "The 'Paddy Harvest Dance' of the Limbu community, performed to celebrate the harvest and social bonding." },
+
+        // Tamil Nadu
+        { state: "Tamil Nadu", genre: "Gaana", loc: "Chennai", lat: 13.0827, lng: 80.2707, videoId: "iMt73INZwwY", summary: "A lively and rhythmic urban folk genre originating from North Chennai, usually sung to upbeat percussion addressing local life and death." },
+        { state: "Tamil Nadu", genre: "Villu Pattu", loc: "Tirunelveli", lat: 8.7139, lng: 77.7567, videoId: "gyOZbiObR9g", summary: "'Bow Song' storytelling where the main instrument is a large musical bow, narrating mythological stories with a chorus." },
+        { state: "Tamil Nadu", genre: "Naattupura Paattu", loc: "Madurai", lat: 9.9252, lng: 78.1198, videoId: "96ML-7jSBNM", summary: "The general term for Tamil folk songs, covering lullabies, work songs, and festival anthems rooted in rural traditions." },
+        { state: "Tamil Nadu", genre: "Kummi", loc: "Coimbatore", lat: 11.0168, lng: 76.9558, videoId: "fVaJyguOaNc", summary: "A dance performed by women in a circle clapping their hands (since no instruments were available traditionally), singing rhythmic songs." },
+        { state: "Tamil Nadu", genre: "Karagattam", loc: "Thanjavur", lat: 10.7870, lng: 79.1378, videoId: "xK5rSRuF1t0", summary: "A folk dance where performers balance pots on their heads, dedicated to the Rain Goddess Mariamman." },
+
+        // Telangana
+        { state: "Telangana", genre: "Oggu Katha", loc: "Warangal", lat: 17.9689, lng: 79.5941, videoId: "JQc4MXTde6c", summary: "A traditional folklore singing style narrating the stories of Mallanna and Beerappa, performed by the Kuruma Golla community." },
+        { state: "Telangana", genre: "Batukamma", loc: "Hyderabad", lat: 17.3850, lng: 78.4867, videoId: "33BYctZlA2Q", summary: "Songs sung by women while dancing around floral stacks during the Bathukamma festival, celebrating nature and womanhood." },
+        { state: "Telangana", genre: "Bonalu", loc: "Secunderabad", lat: 17.4399, lng: 78.4983, videoId: "N1_4J3DOveg", summary: "Rhythmic songs accompanying the Bonalu festival, where women carry pots to offer to Goddess Mahakali to ward off disease." },
+        { state: "Telangana", genre: "Burra Katha (TL)", loc: "Karimnagar", lat: 18.4386, lng: 79.1288, videoId: "U4Fmvg5ldK0", summary: "A storytelling tradition similar to Andhra's, kept alive in Telangana to narrate historical and social stories." },
+        { state: "Telangana", genre: "Perini", loc: "Ramappa/Mulugu", lat: 18.2590, lng: 79.9430, videoId: "B3Ib4Xl_dE8", summary: "Also known as the Dance of Warriors, this revived art form was performed before soldiers went to war during the Kakatiya dynasty." },
+
+        // Tripura
+        { state: "Tripura", genre: "Jaduni", loc: "Kailashahar", lat: 24.3200, lng: 92.0000, videoId: "MCs3rtaSUF8", summary: "Soulful folk songs of the Tripuri people, often expressing love, longing, and the beauty of the hills." },
+        { state: "Tripura", genre: "Mamita", loc: "Dharmanagar", lat: 24.3700, lng: 92.1600, videoId: "Hppml3eJrk0", summary: "A harvest festival dance and song performed by the Tripuri people, celebrating the new crops." },
+        { state: "Tripura", genre: "Garia", loc: "Udaipur", lat: 23.5300, lng: 91.4800, videoId: "I8oEdgSV9do", summary: "A dance performed during the Garia Puja to appease the deity of livestock and wealth, involving drums and flutes." },
+        { state: "Tripura", genre: "Lebang Boomani", loc: "Agartala", lat: 23.8315, lng: 91.2868, videoId: "ja89vJAaoJs", summary: "A unique harvest dance where men make rhythmic sounds with bamboo clappers to attract insects (Lebang) which women catch." },
+        { state: "Tripura", genre: "Hojagiri", loc: "Ambassa", lat: 23.9100, lng: 91.8500, videoId: "rx-i3yr9q50", summary: "A spectacular balance dance of the Reang community where young girls balance on earthen pitchers while managing lamps and bottles." },
+
+        // Uttar Pradesh
+        { state: "Uttar Pradesh", genre: "Rasiya", loc: "Mathura", lat: 27.4924, lng: 77.6737, videoId: "t7Usesu_HBM", summary: "Folk songs from the Braj region celebrating the divine love of Radha and Krishna, often sung during Holi." },
+        { state: "Uttar Pradesh", genre: "Kajri", loc: "Mirzapur", lat: 25.1337, lng: 82.5644, videoId: "y_4WIjfE2-Q", summary: "Semi-classical monsoon songs originating from Mirzapur, expressing a maiden's longing for her lover." },
+        { state: "Uttar Pradesh", genre: "Chaiti", loc: "Varanasi", lat: 25.3176, lng: 82.9739, videoId: "3cY5GQ35hA0", summary: "Seasonal songs sung in the month of Chaitra (March-April) celebrating Ram Navami and the mood of spring." },
+        { state: "Uttar Pradesh", genre: "Hori", loc: "Vrindavan", lat: 27.5706, lng: 77.6593, videoId: "si0QODxHY_s", summary: "Songs specifically associated with the festival of Holi, describing the playful color wars of Krishna and Gopis." },
+        { state: "Uttar Pradesh", genre: "Birha", loc: "Azamgarh", lat: 26.0600, lng: 83.1800, videoId: "GnzKDUWUoR8", summary: "A folk genre of the Ahir community in Eastern UP, characterized by high-pitched singing and narratives of separation." },
+
+        // Uttarakhand
+        { state: "Uttarakhand", genre: "Chhopati", loc: "Tehri", lat: 30.3800, lng: 78.4800, videoId: "j4ZDPvTDBRc", summary: "Love songs sung in the Tehri Garhwal region in a question-answer format between men and women." },
+        { state: "Uttarakhand", genre: "Jhumeila", loc: "Pauri", lat: 30.1500, lng: 78.7800, videoId: "8VulWrnSd34", summary: "A community dance song performed to celebrate the spring season and harvest, reflecting the joy of the hills." },
+        { state: "Uttarakhand", genre: "Jagar", loc: "Almora", lat: 29.5900, lng: 79.6600, videoId: "scCun8GciV4", summary: "A ritualistic form of spirit worship where a singer invokes deities." },
+        { state: "Uttarakhand", genre: "Basanti", loc: "Nainital", lat: 29.3803, lng: 79.4637, videoId: "ubEPJSF0fDw", summary: "Songs composed to welcome the spring season (Basant)." },
+        { state: "Uttarakhand", genre: "Chhura", loc: "Pithoragarh", lat: 29.5800, lng: 80.2100, videoId: "46UQ6-p0ies", summary: "Folk songs sung by shepherds while grazing their cattle, sharing their experiences and advice." },
+
+        // West Bengal
+        { state: "West Bengal", genre: "Baul", loc: "Shantiniketan", lat: 23.6745, lng: 87.6917, videoId: "kbYwA9yoDyg", summary: "The music of mystic minstrels who preach a philosophy of love and humanity, using instruments like the Ektara and Dotara." },
+        { state: "West Bengal", genre: "Bhatiyali", loc: "Canning (Sundarban)", lat: 22.3100, lng: 88.6600, videoId: "J47YZ_QgqpU", summary: "River songs sung by boatmen to pass the time during long voyages, characterized by long, drawn-out notes." },
+        { state: "West Bengal", genre: "Bhawaiya", loc: "Cooch Behar", lat: 26.3200, lng: 89.4400, videoId: "qWc0iIlaVNY", summary: "Popular folk music of North Bengal sung by coachmen, reflecting the pain of separation and the rough terrain." },
+        { state: "West Bengal", genre: "Gambhira", loc: "Malda", lat: 25.0100, lng: 88.1400, videoId: "AvxtNO1kRzE", summary: "A type of song-dance performed during the Charak festival, often involving dialogue and satire about social issues." },
+        { state: "West Bengal", genre: "Jhumur", loc: "Purulia", lat: 23.3300, lng: 86.3600, videoId: "areHLspM9jw", summary: "A folk art form of the red soil region, performed by tribal communities with distinct drum beats and flute melodies." },
+
+        { state: "A&N Islands", genre: "Nicobarese Folk", loc: "Car Nicobar", lat: 9.1700, lng: 92.7600, videoId: "HFl7UERnnRc", summary: "Traditional songs of the Nicobarese tribes sung during pig festivals." },
+        { state: "Chandigarh", genre: "Giddha (Urban)", loc: "Chandigarh", lat: 30.7333, lng: 76.7794, videoId: "0iVIazAwNDw", summary: "A celebratory dance and song performed by women, common in urban settings for weddings and cultural programs." },
+        { state: "DNH & DD", genre: "Tarpa", loc: "Silvassa", lat: 20.2763, lng: 73.0083, videoId: "vOZyz0VYvS8", summary: "A tribal dance performed by the Warli community to the music of the Tarpa, a wind instrument made of gourd and bamboo." },
+        { state: "Delhi", genre: "Qawwali", loc: "Nizamuddin", lat: 28.5916, lng: 77.2396, videoId: "9YIptUly-_w", summary: "Sufi devotional music performed at shrines like Nizamuddin Dargah, characterized by rhythmic clapping and powerful vocals." },
+        { state: "J&K", genre: "Chakri", loc: "Srinagar", lat: 34.0837, lng: 74.7973, videoId: "qCDLqUTsybE", summary: "One of the most popular forms of Kashmiri folk music, sung to the accompaniment of the harmonium, rubab, and sarangi." },
+        { state: "Ladakh", genre: "Jabro", loc: "Hanle", lat: 32.7700, lng: 78.9700, videoId: "Pc9lK2I_v68", summary: "A nomadic dance song of the Changpa tribe performed during Losar." },
+        { state: "Lakshadweep", genre: "Kolkali", loc: "Kavaratti", lat: 10.5669, lng: 72.6420, videoId: "iJrzp3tavzs", summary: "A stick dance similar to those in Kerala, performed by men." },
+        { state: "Puducherry", genre: "Garadi", loc: "Villanur", lat: 11.9200, lng: 79.7600, videoId: "1qPR4cZSzVk", summary: "A dance believed to mimic the movements of the Vanara Sena." },
+
+        // --- SRI LANKA ---
+        { state: "Sri Lanka", genre: "Baila", loc: "Colombo", lat: 6.9271, lng: 79.8612, videoId: "eyYt1AamqjM", summary: "A popular music genre influenced by Portuguese colonizers." },
+        { state: "Sri Lanka", genre: "Kandyan Dance (Udarata)", loc: "Kandy", lat: 7.2906, lng: 80.6337, videoId: "8lgsTnmmlg0", summary: "The premiere dance form of Sri Lanka, performed to the beat of the Geta Beraya." },
+        { state: "Sri Lanka", genre: "Low Country Dance (Pahatharata)", loc: "Galle", lat: 6.0535, lng: 80.2210, videoId: "L2cZPN83rDk", summary: "Ritualistic dances performed in the coastal regions involving demon masks." },
+        { state: "Sri Lanka", genre: "Sabaragamuwa", loc: "Ratnapura", lat: 6.6828, lng: 80.3992, videoId: "L2cZPN83rDk", summary: "A distinct dance tradition blending elements of Kandyan and Low Country styles." },
+        { state: "Sri Lanka", genre: "Nurthi", loc: "Dehiwala", lat: 6.8511, lng: 79.8659, videoId: "vntDPGwG1AM", summary: "A stage drama music influenced by Indian Parsi theatre." },
+
+        // --- NEPAL ---
+        { state: "Nepal", genre: "Tamang Selo", loc: "Kathmandu", lat: 27.7172, lng: 85.3240, videoId: "nXetf_FyIw4", summary: "Folk genre of the Tamang people sung to the beat of the Damphu drum." },
+        { state: "Nepal", genre: "Dohori", loc: "Pokhara", lat: 28.2096, lng: 83.9856, videoId: "LMXpOOkDA-M", summary: "Conversational folk song involving a witty lyrical debate." },
+        { state: "Nepal", genre: "Newari Music (Newa)", loc: "Lalitpur", lat: 27.6644, lng: 85.3188, videoId: "xSDaSz4IDLw", summary: "Classical and folk music of the Kathmandu Valley's Newar community." },
+        { state: "Nepal", genre: "Tharu Music", loc: "Chitwan", lat: 27.6833, lng: 84.4333, videoId: "zNWeCcQgQjk", summary: "Indigenous music of the Tharu people often performed with stick dances." },
+        { state: "Nepal", genre: "Deuda", loc: "Dhangadhi", lat: 28.6852, lng: 80.6080, videoId: "xtDiw2bq8HY", summary: "Cultural dance from Far-Western Nepal where participants step in a circle." },
+        { state: "Nepal", genre: "Maruni", loc: "Palpa (Tansen)", lat: 27.8673, lng: 83.5467, videoId: "TWfj7bxnook", summary: "One of the oldest folk dances celebrating the return of Lord Rama." },
+        { state: "Nepal", genre: "Jhyaure", loc: "Gorkha", lat: 28.0000, lng: 84.6333, videoId: "rL_zNvR8Sf0", summary: "Romantic and playful folk songs sung by youths." },
+        { state: "Nepal", genre: "Dhan Nach (Palam)", loc: "Dharan", lat: 26.8126, lng: 87.2835, videoId: "tE84pBV24C0", summary: "The 'Paddy Dance' of the Limbu community performed to celebrate harvest." },
+        { state: "Nepal", genre: "Kauda (Chutka)", loc: "Baglung", lat: 28.2719, lng: 83.5897, videoId: "Jxx_IM2PylU", summary: "A popular dance of the Magar community characterized by rhythmic steps." },
+        { state: "Nepal", genre: "Sakela (Sumnima/Paruhang)", loc: "Bhojpur", lat: 27.1715, lng: 87.0515, videoId: "FyXWHokDzeY", summary: "Major festival dance of the Rai people worshipping mother nature." },
+
+        // --- BANGLADESH ---
+        { state: "Bangladesh", genre: "Baul", loc: "Kushtia", lat: 23.9013, lng: 89.1204, videoId: "kbYwA9yoDyg", summary: "Mystical music of Bengal declaring a philosophy of love and humanity." },
+        { state: "Bangladesh", genre: "Bhatiali", loc: "Sunamganj", lat: 25.0715, lng: 91.3992, videoId: "J47YZ_QgqpU", summary: "Soulful boatman songs reflecting the philosophy of life and the river." },
+        { state: "Bangladesh", genre: "Bhawaiya", loc: "Rangpur", lat: 25.7439, lng: 89.2752, videoId: "qWc0iIlaVNY", summary: "Emotional folk songs of cart drivers expressing pangs of separation." },
+        { state: "Bangladesh", genre: "Gambhira", loc: "Chapai Nawabganj", lat: 24.5965, lng: 88.2775, videoId: "AvxtNO1kRzE", summary: "Folk presentation involving a dialogue between a grandfather and grandson." },
+        { state: "Bangladesh", genre: "Hason Raja", loc: "Sylhet", lat: 24.8949, lng: 91.8687, videoId: "nPZghCOUcFw", summary: "Songs composed by the mystic poet Hason Raja exploring spiritual themes." },
+
+        // --- BHUTAN ---
+        { state: "Bhutan", genre: "Zhungdra", loc: "Punakha", lat: 27.5815, lng: 89.8606, videoId: "9TLQjf9NxfE", summary: "Oldest form of Bhutanese folk music with extended vocal tones." },
+        { state: "Bhutan", genre: "Boedra", loc: "Thimphu", lat: 27.4728, lng: 89.6393, videoId: "iHCGD8HKv4Y", summary: "Court music genre influenced by Tibetan styles performed in a circle." },
+        { state: "Bhutan", genre: "Rigsar", loc: "Paro", lat: 27.4287, lng: 89.4164, videoId: "oH5MaI5hNwA", summary: "Dominant modern pop music style of Bhutan played on the Dranyen." },
+
+        // --- PAKISTAN ---
+        { state: "Pakistan", genre: "Qawwali", loc: "Lahore", lat: 31.5497, lng: 74.3436, videoId: "q1pRgIvAnCk", summary: "Devotional Sufi music aiming to lead listeners to religious ecstasy." },
+        { state: "Pakistan", genre: "Sufi Rock/Folk", loc: "Karachi", lat: 24.8607, lng: 67.0011, videoId: "fSZLBcHTvHc", summary: "Modern fusion genre blending traditional Sufi poetry with Western rock." },
+        { state: "Pakistan", genre: "Sindhi Folk (Waee/Bait)", loc: "Hyderabad", lat: 25.3960, lng: 68.3578, videoId: "yENa-FPgiCA", summary: "Rooted in Sufism featuring the Alghoza and singing poetry of Shah Abdul Latif." },
+        { state: "Pakistan", genre: "Balochi Folk (Lullaby/Sepad)", loc: "Quetta", lat: 30.1798, lng: 66.9750, videoId: "F0Upflupw6U", summary: "Music featuring instruments like the Soroz narrating tribal history." },
+        { state: "Pakistan", genre: "Pashto Folk (Tappa/Charbeta)", loc: "Peshawar", lat: 34.0151, lng: 71.5249, videoId: "i1pGbDITMcE", summary: "Traditional music of the Pashtuns featuring the Rubab and Tabla." },
+        { state: "Pakistan", genre: "Punjabi Folk (Bhangra/Jugni)", loc: "Faisalabad", lat: 31.4504, lng: 73.1350, videoId: "7PlAuLeMIpc", summary: "Energetic and rhythmic genre celebrating harvest and romance." },
+        { state: "Pakistan", genre: "Seraiki Folk (Kafi)", loc: "Multan", lat: 30.1575, lng: 71.5249, videoId: "dOzUed7qCVw", summary: "Soulful music known for the Kafi style sung by legends like Pathanay Khan." },
+        { state: "Pakistan", genre: "Chitrali Sitar Music", loc: "Chitral", lat: 35.8510, lng: 71.7864, videoId: "2m4W-G-5Rak", summary: "Music from the northern mountains played on the Chitrali Sitar." },
+        { state: "Pakistan", genre: "Gilgit-Baltistan Folk (Hareep)", loc: "Gilgit", lat: 35.9221, lng: 74.3087, videoId: "zESCIjF1Vk0", summary: "Diverse folk tunes often accompanied by Dadang drums and Surnai flute." },
+        { state: "Pakistan", genre: "Kashmiri Folk (Chakri)", loc: "Muzaffarabad", lat: 34.3700, lng: 73.4700, videoId: "qCDLqUTsybE", summary: "Traditional folk singing involving a chorus and instruments like the Nut." },
+
+        // --- WESTERN PAKISTAN ADDITIONS ---
+        { state: "Pakistan", genre: "Attan", loc: "Wana", lat: 32.2989, lng: 69.5725, videoId: "KN4BEMgkYNw", summary: "A traditional Pashtun dance performed in a circle to the beat of the Dhol, historically a war dance but now performed at celebrations." },
+        { state: "Pakistan", genre: "Balochi Chaap", loc: "Turbat", lat: 26.0031, lng: 63.0544, videoId: "tHuR1wjPyGE", summary: "A rhythmic group dance from Balochistan involving clapping (Chaap) and footwork, performed at weddings and Eid." },
+        { state: "Pakistan", genre: "Khattak Dance", loc: "Karak", lat: 33.1167, lng: 71.0833, videoId: "gFD9h7DWEKI", summary: "A swift and martial sword dance performed by the Khattak tribe of Pashtuns, characterized by the use of swords and handkerchiefs." },
+        { state: "Pakistan", genre: "Nar Sur", loc: "Sibi", lat: 29.5448, lng: 67.8764, videoId: "v2c6gX_b_bQ", summary: "A unique vocal style of the Balochi people involving a throat-singing technique called 'Nar', often accompanied by the Suroz." },
+        { state: "Pakistan", genre: "Leewa", loc: "Gwadar", lat: 25.1216, lng: 62.3254, videoId: "B-LGwMVNUMA", summary: "An Afro-Baloch folk dance and music genre with African roots, performed in coastal Makran, featuring the Mizmar (flute) and heavy drumming." }
+    ];
+
+    // Loop through data and create markers
+    musicData.forEach(item => {
+        const marker = L.marker([item.lat, item.lng]).addTo(map);
+
+        marker.bindTooltip(item.genre, {
+            permanent: false,
+            direction: 'top',
+            className: 'genre-tooltip'
+        });
+
+        // Create DOM element for popup content to handle events properly
+        const container = document.createElement('div');
+        container.className = 'popup-content-container';
+
+        const genreTitle = document.createElement('span');
+        genreTitle.className = 'popup-genre';
+        genreTitle.textContent = item.genre;
+        container.appendChild(genreTitle);
+
+        const locationInfo = document.createElement('span');
+        locationInfo.className = 'popup-location';
+        locationInfo.textContent = `${item.loc}, ${item.state}`;
+        container.appendChild(locationInfo);
+
+        const summaryText = document.createElement('span');
+        summaryText.className = 'popup-summary';
+        summaryText.textContent = item.summary;
+        container.appendChild(summaryText);
+
+        if (item.videoId) {
+            const videoFacade = document.createElement('div');
+            videoFacade.className = 'video-facade';
+
+            const thumbnail = document.createElement('img');
+            thumbnail.src = `https://img.youtube.com/vi/${item.videoId}/hqdefault.jpg`;
+            thumbnail.alt = `${item.genre} Video Thumbnail`;
+            videoFacade.appendChild(thumbnail);
+
+            const playBtn = document.createElement('div');
+            playBtn.className = 'play-button';
+            videoFacade.appendChild(playBtn);
+
+            // Add click event listener with stopPropagation to prevent popup close
+            videoFacade.addEventListener('click', function(e) {
+                e.stopPropagation(); // Critical: stops map click event
+                
+                // Open in new window on click instead of embedding
+                window.open(`https://www.youtube.com/watch?v=${item.videoId}`, '_blank');
+            });
+
+            container.appendChild(videoFacade);
+        }
+
+        marker.bindPopup(container);
+    });
+
+</script>
+
+</body>
+</html>
