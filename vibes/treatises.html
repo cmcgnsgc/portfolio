@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Indian Music Treatises</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
+    <style>
+        :root {
+            /* Blue/Grey/Black Theme */
+            --bg-dark: #000000;
+            --bg-panel: #111827;
+            /* Dark Grey-Blue */
+            --accent-main: #60a5fa;
+            /* Light Blue */
+            --accent-highlight: #3b82f6;
+            /* Blue */
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --card-bg: #1f2937;
+            --card-hover: #374151;
+            --border-color: #374151;
+
+            --font-body: 'Outfit', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-body);
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Main Layout */
+        .app-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        /* Timeline Panel */
+        .timeline-panel {
+            width: 300px;
+            /* Fixed 300px width on desktop */
+            flex-shrink: 0;
+            background-color: var(--bg-panel);
+            overflow-y: auto;
+            border-right: 1px solid var(--border-color);
+            position: relative;
+            padding: 1.5rem;
+            /* REMOVED max-height to avoid black gap */
+            height: 100%;
+        }
+
+        /* Scrollbar styling */
+        .timeline-panel::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .timeline-panel::-webkit-scrollbar-track {
+            background: var(--bg-panel);
+        }
+
+        .timeline-panel::-webkit-scrollbar-thumb {
+            background-color: var(--border-color);
+            border-radius: 4px;
+        }
+
+        /* Timeline Items */
+        .timeline-list {
+            position: relative;
+            padding-left: 20px;
+        }
+
+        .timeline-list::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: linear-gradient(to bottom, transparent, var(--border-color), transparent);
+        }
+
+        .timeline-item {
+            margin-bottom: 1.25rem;
+            padding: 1rem;
+            /* REDUCED padding from 1.25rem */
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -26px;
+            top: 24px;
+            width: 12px;
+            height: 12px;
+            background-color: var(--bg-panel);
+            border: 2px solid var(--text-secondary);
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        }
+
+        .timeline-item:hover {
+            background: var(--card-hover);
+            transform: translateX(2px);
+            border-color: var(--accent-main);
+        }
+
+        .timeline-item.active {
+            background: var(--card-hover);
+            border-color: var(--accent-highlight);
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.1);
+        }
+
+        .timeline-item.active::before {
+            background-color: var(--accent-highlight);
+            border-color: var(--accent-highlight);
+            box-shadow: 0 0 8px var(--accent-highlight);
+        }
+
+        /* Text Styles - All Sans Serif, No Italics */
+        .item-date {
+            font-size: 0.85rem;
+            color: var(--accent-main);
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            display: block;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .item-title {
+            font-size: 1.2rem;
+            color: #fff;
+            margin-bottom: 0.25rem;
+            font-weight: 600;
+        }
+
+        .item-author {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            margin-bottom: 0px;
+            font-style: normal;
+            /* No Italics */
+        }
+
+        /* Map Panel */
+        .map-panel {
+            flex: 1;
+            /* Takes remaining space */
+            position: relative;
+            background-color: var(--bg-dark);
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* Map Popups */
+        .leaflet-popup-content-wrapper {
+            background: rgba(17, 24, 39, 0.95);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            font-family: var(--font-body);
+        }
+
+        .leaflet-popup-tip {
+            background: rgba(17, 24, 39, 0.95);
+            border-left: 1px solid var(--border-color);
+            border-top: 1px solid var(--border-color);
+        }
+
+        .popup-content h3 {
+            color: var(--accent-main);
+            margin-bottom: 5px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+        }
+
+        .popup-detail {
+            margin-top: 10px;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .popup-label {
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 0.75rem;
+            display: block;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 4px;
+        }
+
+        .popup-links {
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(55, 65, 81, 0.5);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .popup-link-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+        }
+
+        .popup-link-item a {
+            color: var(--accent-main);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .popup-link-item a:hover {
+            color: #fff;
+            text-decoration: underline;
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .app-container {
+                flex-direction: column-reverse;
+                /* Map top, Timeline bottom */
+            }
+
+            .timeline-panel {
+                width: 100%;
+                /* Full width on mobile */
+                height: 50%;
+                max-height: none;
+                border-right: none;
+                border-top: 1px solid var(--border-color);
+            }
+
+            .map-panel {
+                width: 100%;
+                height: 50%;
+            }
+
+            /* Reduced sizes for Mobile */
+            .item-date {
+                font-size: 0.75rem;
+                margin-bottom: 0.25rem;
+            }
+
+            .item-title {
+                font-size: 1rem;
+                /* Smaller title */
+                margin-bottom: 0.15rem;
+            }
+
+            .item-author {
+                font-size: 0.85rem;
+            }
+
+            .timeline-item {
+                padding: 0.75rem;
+                /* Compact padding */
+                margin-bottom: 1rem;
+            }
+
+            .timeline-panel {
+                padding: 1rem;
+                /* Less container padding */
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="app-container">
+        <div class="timeline-panel">
+            <div class="timeline-list" id="timeline-list">
+                <!-- Timeline items will be injected here -->
+            </div>
+        </div>
+        <div class="map-panel">
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <script>
+        // Data from texts.csv and indian_musicological_treatises.csv
+        const treatises = [
+            {
+                id: 1,
+                title: "Natyashastra",
+                date: "200 BCE – 200 CE",
+                author: "Bharata Muni",
+                summary: "Written for playwrights and connoisseurs to establish drama and music as a sacred ritual. It codifies the laws of Rasa (aesthetics) and Gandharva music to ensure spiritual success in performance.",
+                location: "North India (likely Kashmir or Varanasi)",
+                coordinates: [28.6, 77.2],
+                youtube: "https://www.youtube.com/watch?v=45CNlKkvsMc",
+                textLink: "https://archive.org/stream/NatyaShastra/natya_shastra_translation_volume_1_-_bharat_muni_djvu.txt"
+            },
+            {
+                id: 2,
+                title: "Dattilam",
+                date: "1st – 4th Century",
+                author: "Dattila",
+                summary: "A concise manual for students of sacred music who found the Natyashastra too broad. It focuses strictly on tonal structures to preserve the purity of Gandharva forms.",
+                location: "North India",
+                coordinates: [29.0, 76.0],
+                youtube: "https://www.youtube.com/watch?v=45CNlKkvsMc",
+                textLink: "https://archive.org/details/in.ernet.dli.2015.481565"
+            },
+            {
+                id: 3,
+                title: "Brihaddeshi",
+                date: "6th – 8th Century",
+                author: "Matanga Muni",
+                summary: "Addressed to scholars needing to reconcile rigid ancient theory with evolving regional art. It legitimizes Desi (folk/regional) music and introduces the formal definition of \"Raga.\"",
+                location: "Karnataka or Central India",
+                coordinates: [15.3173, 75.7139],
+                youtube: "https://www.youtube.com/watch?v=6F-ciVsh9Kk",
+                textLink: "https://archive.org/stream/brihadhesi-of-mathangamuni/BRIHADHESI%20OF%20MATHANGAMUNI-_djvu.txt"
+            },
+            {
+                id: 4,
+                title: "Sangita Makaranda",
+                date: "11th Century",
+                author: "Narada",
+                summary: "Written for musicologists interested in metaphysical categorization. It classifies Ragas by gender (male/female), laying the foundation for the \"Munis\" or schools like Hanuman Mat.",
+                location: "Central India",
+                coordinates: [23.5, 78.5],
+                youtube: "https://www.youtube.com/watch?v=WMWaT007-JU",
+                textLink: "https://archive.org/details/in.ernet.dli.2015.310999"
+            },
+            {
+                id: 5,
+                title: "Gita Govinda",
+                date: "12th Century",
+                author: "Jayadeva",
+                summary: "Composed for temple devotees to worship Lord Krishna through song. It fuses high Sanskrit literature with emotive musical structures, embedding performance into daily ritual.",
+                location: "Puri, Odisha",
+                coordinates: [19.8135, 85.8312],
+                youtube: "https://www.youtube.com/watch?v=sWuKgt_3GLQ",
+                textLink: "https://ia801505.us.archive.org/15/items/in.ernet.dli.2015.237605/2015.237605.Sri-Jayadevas_text.pdf"
+            },
+            {
+                id: 6,
+                title: "Sangita Ratnakara",
+                date: "13th Century",
+                author: "Sharngadeva",
+                summary: "A massive compendium for courtiers seeking to preserve all existing musical knowledge during a time of political instability. It documents thousands of compositions and serves as the bridge between ancient and modern systems.",
+                location: "Devagiri (Daulatabad), Maharashtra",
+                coordinates: [19.95, 75.18],
+                youtube: "https://www.youtube.com/watch?v=qM8s_C8rLHM",
+                textLink: "https://archive.org/download/Mus-SourceTexts/TxtSkt-sangItaratnAkara-Sarngadeva-v4-EngTrn-KRajaandRadhaB-AdyarLibrary-1976-0063.pdf"
+            },
+            {
+                id: 7,
+                title: "Suladi Sapta Tala",
+                date: "1484 – 1564",
+                author: "Purandara Dasa",
+                summary: "A pedagogical system designed for students initiating their musical training. It simplifies complex medieval rhythms into seven standard beats to make music education accessible to the common devotee.",
+                location: "Vijayanagara (Hampi), Karnataka",
+                coordinates: [15.3350, 76.4600],
+                youtube: "https://www.youtube.com/watch?v=DYOqmrLNX24",
+                textLink: "https://archive.org/details/shdgnga.a-study-of-the-songs-of-purandaradasa-in-the-social-historical-and-relig"
+            },
+            {
+                id: 8,
+                title: "Swaramelakalanidhi",
+                date: "c. 1550",
+                author: "Ramamatya",
+                summary: "Addressed to the Vijayanagara court to resolve discrepancies in raga practice. It introduces the Mela (scale) concept, moving theory towards the modern Carnatic system.",
+                location: "Vijayanagara, Karnataka",
+                coordinates: [15.3450, 76.4700],
+                youtube: "https://www.youtube.com/watch?v=1s9p4yX2j80",
+                textLink: "https://archive.org/details/in.ernet.dli.2015.367399"
+            },
+            {
+                id: 9,
+                title: "Ragamala",
+                date: "c. 1570",
+                author: "Mesakarna (Kshemakarna)",
+                summary: "Written for patrons interested in the visual arts. It standardizes the iconography of Ragas as deities or heroes to guide painters, representing the Meskarna school of thought.",
+                location: "Rewa, Central India",
+                coordinates: [24.5362, 81.3037],
+                youtube: "https://www.youtube.com/watch?v=yM_1LjgZopM",
+                textLink: "http://musicresearchlibrary.net/omeka/items/show/1507"
+            },
+            {
+                id: 10,
+                title: "Sangita Darpana",
+                date: "c. 1625",
+                author: "Damodara Pandita",
+                summary: "A \"Mirror of Music\" for courtly audiences requiring an updated taxonomy. It mirrors Ratnakara but popularizes the Hanuman Mat classification (6 Ragas, 30 Raginis) for the North.",
+                location: "North India (Mughal/Rajput Courts)",
+                coordinates: [27.1751, 78.0421],
+                youtube: "https://www.youtube.com/watch?v=5rL9M6i0s7U",
+                textLink: "https://archive.org/download/TxtSktSangItaDarpaNaDamodaraTMSSML19520101_201508/TxtSkt-sangIta-darpaNa-Damodara-TMSSML-1952-0101.pdf"
+            },
+            {
+                id: 11,
+                title: "Chaturdandi Prakasika",
+                date: "c. 1660",
+                author: "Venkatamakhin",
+                summary: "Addressed to scholars of the Nayaka court to organize the proliferation of scales. It establishes the mathematical 72 Melakarta system to contain all possible Ragas.",
+                location: "Thanjavur, Tamil Nadu",
+                coordinates: [10.7870, 79.1378],
+                youtube: "https://www.youtube.com/watch?v=UD5WMaXLl8A",
+                textLink: "https://archive.org/details/chaturdandiprakasikaofvenkatamakhitypedtext"
+            },
+            {
+                id: 12,
+                title: "Sangita Parijata",
+                date: "c. 1665",
+                author: "Ahobala",
+                summary: "Targeted at musicians and instrument makers needing precise tuning methods. It maps notes onto the Veena string using measurement, paving the way for the Hindustani Thaat system.",
+                location: "North India",
+                coordinates: [28.0, 77.0],
+                youtube: "https://www.youtube.com/watch?v=dPSr3swtLDk",
+                textLink: "https://musicresearchlibrary.net/omeka/items/show/2722"
+            },
+            {
+                id: 13,
+                title: "Ma’dan-ul-Musiqi",
+                date: "c. 1856",
+                author: "Hakim M. Karam Imam",
+                summary: "A sociological critique written for the Lucknow aristocracy. It documents the decline of standards among performers and the shift of music from spiritual courts to professional salons.",
+                location: "Lucknow, Awadh",
+                coordinates: [26.8467, 80.9461],
+                youtube: "https://www.youtube.com/watch?v=nRrT2FTUd9w",
+                textLink: "https://archive.org/details/dli.ernet.544684"
+            }
+        ];
+
+        // State
+        let map;
+        let markers = {};
+        let activeId = null;
+
+        // Initialize map
+        function initMap() {
+            // Center on India
+            map = L.map('map', {
+                zoomControl: true,
+                scrollWheelZoom: true,
+                attributionControl: false
+            }).setView([22.0, 79.0], 5);
+
+            // Dark themed tiles (CartoDB Dark Matter)
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                subdomains: 'abcd',
+                maxZoom: 19
+            }).addTo(map);
+
+            // Custom Marker Icon
+            const markerIcon = L.divIcon({
+                className: 'custom-div-icon',
+                html: "<div style='background-color: #3b82f6; width: 12px; height: 12px; border-radius: 50%; box-shadow: 0 0 10px #3b82f6; border: 2px solid #fff;'></div>",
+                iconSize: [20, 20],
+                iconAnchor: [10, 10]
+            });
+
+            // Add Markers
+            treatises.forEach(item => {
+                const marker = L.marker(item.coordinates, { icon: markerIcon }).addTo(map);
+
+                // Popup content
+                const popupContent = `
+                <div class="popup-content">
+                    <h3>${item.title}</h3>
+                    <div style="font-style: italic; color: #a0a0ff; margin-bottom: 5px;">${item.author}</div>
+                    <div style="font-size: 0.8rem; color: #ccc;">${item.date}</div>
+                    
+                    <div class="popup-detail">
+                        <span class="popup-label">Location</span>
+                        ${item.location}
+                    </div>
+                    
+                    <div class="popup-detail">
+                        <span class="popup-label">Significance</span>
+                        ${item.summary}
+                    </div>
+
+                    <div class="popup-links">
+                        ${item.youtube ? `
+                        <div class="popup-link-item">
+                            <span>🎵</span>
+                            <a href="${item.youtube}" target="_blank">Listen on YouTube</a>
+                        </div>` : ''}
+                        
+                        ${item.textLink ? `
+                        <div class="popup-link-item">
+                            <span>📖</span>
+                            <a href="${item.textLink}" target="_blank">Read Text</a>
+                        </div>` : ''}
+                    </div>
+                </div>
+            `;
+
+                marker.bindPopup(popupContent);
+
+                marker.on('click', () => {
+                    selectItem(item.id);
+                });
+
+                markers[item.id] = marker;
+            });
+        }
+
+        // Render Timeline
+        function renderTimeline() {
+            const container = document.getElementById('timeline-list');
+            container.innerHTML = '';
+
+            treatises.forEach(item => {
+                const el = document.createElement('div');
+                el.className = `timeline-item`;
+                el.dataset.id = item.id;
+                el.onclick = () => selectItem(item.id);
+
+                // Only Date, Title, Author - NO LOCATION
+                el.innerHTML = `
+                <span class="item-date">${item.date}</span>
+                <div class="item-title">${item.title}</div>
+                <div class="item-author">${item.author}</div>
+            `;
+
+                container.appendChild(el);
+            });
+        }
+
+        // Select Item Logic
+        function selectItem(id) {
+            if (activeId === id) return;
+            activeId = id;
+
+            // 1. Highlight Timeline
+            document.querySelectorAll('.timeline-item').forEach(el => {
+                if (parseInt(el.dataset.id) === id) {
+                    el.classList.add('active');
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else {
+                    el.classList.remove('active');
+                }
+            });
+
+            // 2. Map Interaction
+            const item = treatises.find(t => t.id === id);
+            if (item && map) {
+                // Check if mobile
+                const isMobile = window.innerWidth <= 768;
+                let targetCoords = item.coordinates;
+
+                if (isMobile) {
+                    // Offset map center to the North (Latitude +) to push the marker down
+                    // At Zoom 6, roughly 3-4 degrees offset works well for this aspect ratio
+                    targetCoords = [item.coordinates[0] + 3.0, item.coordinates[1]];
+                }
+
+                // Fly to location
+                map.flyTo(targetCoords, 6, {
+                    animate: true,
+                    duration: 1.5
+                });
+
+                const marker = markers[id];
+                if (marker) {
+                    marker.openPopup();
+                }
+            }
+        }
+
+        // Init
+        document.addEventListener('DOMContentLoaded', () => {
+            initMap();
+            renderTimeline();
+        });
+
+    </script>
+
+</body>
+
+</html>
