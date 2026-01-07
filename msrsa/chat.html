@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MSRA Chat</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/minisearch@6.3.0/dist/umd/index.min.js"></script>
+    <script src="knowledge.js"></script>
+    <script src="bibliography.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --chat-bg: #ffffff;
+            --user-msg-bg: #f4f4f4;
+            --bot-msg-bg: #ffffff;
+            --text-primary: #1a1a1a;
+            --text-secondary: #666666;
+            --border-color: #eaeaea;
+            --accent-color: #000000;
+            --input-bg: #ffffff;
+            --font-family: 'Courier New', Courier, monospace;
+            --max-width: 800px;
+        }
+
+        * {
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: var(--font-family);
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Minimalist Header */
+        header {
+            width: 100%;
+            border-bottom: 1px solid var(--border-color);
+            background: rgba(255, 255, 255, 0.5);
+            z-index: 100;
+            display: flex;
+            justify-content: center;
+            padding: 20px 0;
+        }
+
+        .header-content {
+            width: 100%;
+            max-width: var(--max-width);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+        }
+
+        h1 {
+            font-size: 1rem;
+            font-weight: 400;
+            margin: 0;
+            letter-spacing: -0.02em;
+        }
+
+        nav a {
+            color: var(--text-primary);
+            text-decoration: none;
+            margin-left: 20px;
+            font-size: 0.9rem;
+        }
+
+        nav a.active {
+            font-weight: 400;
+            border-bottom: 1px solid var(--text-primary);
+        }
+
+        .api-key-container {
+            position: relative;
+        }
+
+        #apiKeyInput {
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 0;
+            font-size: 0.8rem;
+            width: 200px;
+            transition: all 0.2s;
+        }
+
+        #apiKeyInput:focus {
+            border-color: var(--accent-color);
+        }
+
+        /* Chat Area */
+        main {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            max-width: var(--max-width);
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        .message {
+            display: flex;
+            gap: 16px;
+            line-height: 1.6;
+            font-size: 0.95rem;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(5px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message.user .content {
+            background-color: var(--user-msg-bg);
+            border-radius: 0;
+            padding: 12px 16px;
+            max-width: 80%;
+        }
+
+        .message.bot .avatar {
+            width: 28px;
+            height: 28px;
+            font-size: 24px;
+            text-align: center;
+            background: none;
+            flex-shrink: 0;
+        }
+
+        .message.bot .content {
+            background: transparent;
+            padding: 0;
+            max-width: 90%;
+            overflow-x: hidden;
+        }
+
+        /* Markdown Styles */
+        .message.bot .content p {
+            margin: 0 0 10px 0;
+        }
+
+        .message.bot .content p:last-child {
+            margin: 0;
+        }
+
+        .message.bot .content pre {
+            background: #f6f8fa;
+            padding: 12px;
+            border-radius: 0;
+            overflow-x: auto;
+            border: 1px solid var(--border-color);
+        }
+
+        .message.bot .content code {
+            font-family: monospace;
+            background: #f6f8fa;
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-size: 0.85em;
+        }
+
+        /* Input Area */
+        footer {
+            padding: 20px;
+            background: var(--bg-color);
+            max-width: var(--max-width);
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        .input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: flex-end;
+            border: 1px solid #000000;
+            border-radius: 0;
+            background: var(--input-bg);
+            padding: 8px;
+            transition: border-color 0.2s;
+            box-shadow: none;
+        }
+
+        .input-wrapper:focus-within {
+            border-color: #000000;
+            box-shadow: none;
+        }
+
+        textarea {
+            flex: 1;
+            border: none;
+            resize: none;
+            padding: 10px;
+            font-family: var(--font-family);
+            font-size: 0.95rem;
+            max-height: 200px;
+            min-height: 96px;
+            background: transparent;
+        }
+
+        /* Send button removed */
+
+        .typing-indicator {
+            display: none;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            margin-left: 44px;
+            margin-top: -10px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <div class="header-content">
+            <h1>Music, Sound, and Religion in South Asia</h1>
+            <nav>
+                <a href="chat.html" class="active">Chat</a>
+                <a href="map.html">Map</a>
+                <a href="citations.html">Citations</a>
+            </nav>
+        </div>
+    </header>
+
+    <main id="chatContainer">
+        <!-- Messages will appear here -->
+        <div class="message bot">
+            <div class="avatar"></div>
+            <div class="content">
+                <p>What topic would you like to research?</p>
+            </div>
+        </div>
+    </main>
+
+    <div class="typing-indicator" id="typingIndicator"></div>
+
+    <footer>
+        <div class="input-wrapper">
+            <textarea id="userInput" placeholder="" rows="4"></textarea>
+            <!-- Send button removed -->
+        </div>
+    </footer>
+
+    <script>
+        const chatContainer = document.getElementById('chatContainer');
+        const userInput = document.getElementById('userInput');
+        const typingIndicator = document.getElementById('typingIndicator');
+
+        let isProcessing = false;
+
+        // Auto-resize textarea
+        userInput.addEventListener('input', function () {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+            if (this.value === '') this.style.height = 'auto';
+        });
+
+        // Handle Enter key
+        userInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        // Knowledge Base State
+        let miniSearch = null;
+        let searchDocs = [];
+
+        function findCitation(docTitle) {
+            if (!window.FULL_BIBLIOGRAPHY) return null; // Return null if no bib, so we can use title as fallback elsewhere
+
+            // Expected format: Author - Year - Title
+            const parts = docTitle.split(' - ');
+            const author = parts[0].trim().split(',')[0]; // Just surname if possible, or full name if no comma
+
+            // 1. Try Author + Year match
+            if (parts.length >= 2) {
+                const year = parts[1].trim();
+                const match = window.FULL_BIBLIOGRAPHY.find(entry => {
+                    return entry.includes(author) && entry.includes(year);
+                });
+                if (match) return match;
+            }
+
+            // 2. Fallback: Author match only (if year missing or mismatch like 2014 vs 2015)
+            // Use with caution, maybe find first entry that contains Author surname
+            const authorMatch = window.FULL_BIBLIOGRAPHY.find(entry => entry.includes(author));
+            return authorMatch || null;
+        }
+
+        async function sendMessage() {
+            const text = userInput.value.trim();
+            const apiKey = atob('QUl6YVN5QWF6LWNGWTh0Qm9IeW56WkpRVFcwTlRWNkRSSDJnTTFz');
+
+            if (!text) return;
+            if (isProcessing) return;
+
+            appendMessage('user', text);
+            userInput.value = '';
+            userInput.style.height = 'auto';
+            isProcessing = true;
+            setLoading(true);
+
+            try {
+                let contextText = "";
+
+                // RAG Step
+                if (miniSearch && searchDocs.length > 0) {
+                    console.log("Searching knowledge base...");
+                    const results = miniSearch.search(text, {
+                        boost: { title: 10 },
+                        fuzzy: 0.2,
+                        prefix: true,
+                        combineWith: 'OR'
+                    });
+
+                    const topResults = results.slice(0, 5);
+                    if (topResults.length > 0) {
+                        contextText = "Use the following context from academic journals to answer the question.\n\n";
+                        topResults.forEach(res => {
+                            const doc = searchDocs.find(d => d.id === res.id);
+                            if (doc) {
+                                const fullCitation = findCitation(doc.title) || doc.title; // Fallback to title if no ID
+                                contextText += `FullCitation: ${fullCitation}\n(Author Year): (${doc.title.split(' - ')[0]} ${doc.title.split(' - ')[1]})\nContent: ${doc.content}\n\n`;
+                            }
+                        });
+                        contextText += "---\n\n";
+                    }
+                }
+
+                const modelName = 'gemini-2.5-flash-lite';
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+
+                const history = Array.from(document.querySelectorAll('.message')).map(msg => {
+                    const isUser = msg.classList.contains('user');
+                    const content = msg.querySelector('.content').innerText;
+                    if (content.includes("Please enter your API Key") || content.includes("**Error:**")) return null;
+                    return {
+                        role: isUser ? "user" : "model",
+                        parts: [{ text: content }]
+                    };
+                }).filter(Boolean);
+
+                // Start fresh for this turn in terms of prompt construction to avoid growing context window too fast with repeated context
+                // We construct the last user message to include the context.
+
+                // Current history includes the user message we just added (as raw text).
+                // We want to REPLACE that raw text in the API call with the augmented text.
+                history.pop();
+
+                let finalPrompt = text;
+                let finalSystemInstruction = "You are a helpful assistant.";
+
+                if (contextText) {
+                    finalSystemInstruction = `You are a strict academic research assistant.
+Your goal is to answer the user's question using ONLY the provided Journal Article Context below.
+Rules:
+1. Use ONLY the information in the Context. Do not use outside knowledge.
+2. If the answer is not in the Context, state "The provided articles do not contain this information." and DO NOT include a References section.
+3. In your text, cite sources using the format (Author Year).
+4. Provide a detailed response, aiming for approximately 2 paragraphs.
+5. Focus your response on how the topic the user asks about has been researched or discussed in the provided references.
+6. At the very end of your response, add a section titled "<u>References</u>". Do NOT make this title bold or a markdown header (no #). It should just be the word References with the underline tags.
+7. Under this title, list the 'FullCitation' string provided in the context for every source you used.
+8. SPECIFIC RESTRICTION: You must derive ALL musical terms and knowledge about India EXCLUSIVELY from the provided articles. Do not apply general external knowledge about Indian music or culture.`;
+
+                    finalPrompt = `Context:\n${contextText}\n\nQuestion: ${text}`;
+                } else if (miniSearch && searchDocs.length > 0) {
+                    // If we have a KB but found no results, strict mode means we might not know.
+                    // But we let the model handle general pleasantries or "I don't know" if it was a specific query.
+                    // However, to be strict:
+                    finalSystemInstruction = `You are a strict research assistant. The user has a database of articles, but no relevant articles were found for this specific query.
+If the user is asking a general question (like "hello"), be polite.
+If the user is asking for information, state "The provided articles do not contain this information."`;
+                }
+
+                const payload = {
+                    contents: [
+                        ...history,
+                        { role: "user", parts: [{ text: finalPrompt }] }
+                    ],
+                    system_instruction: {
+                        parts: [{ text: finalSystemInstruction }]
+                    }
+                };
+
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    if (data.error?.message?.includes('not found') || data.error?.code === 404) {
+                        await listAvailableModels(apiKey);
+                        throw new Error(`Model '${modelName}' not found.`);
+                    }
+                    throw new Error(data.error?.message || 'API Error');
+                }
+
+                const botText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                if (botText) {
+                    appendMessage('bot', botText);
+                } else {
+                    throw new Error('No response content');
+                }
+
+            } catch (error) {
+                console.error(error);
+                appendMessage('bot', `**Error:** ${error.message}`);
+            } finally {
+                isProcessing = false;
+                setLoading(false);
+            }
+        }
+
+        async function listAvailableModels(apiKey) {
+            try {
+                const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+                const response = await fetch(listUrl);
+                const data = await response.json();
+
+                if (data.models) {
+                    const modelNames = data.models
+                        .filter(m => m.supportedGenerationMethods?.includes('generateContent'))
+                        .map(m => `* \`${m.name.replace('models/', '')}\``)
+                        .join('\n');
+
+                    appendMessage('bot', `**Available Models for your Key:**\n\n${modelNames}\n\n*Please copy one of these into the Model input field above.*`);
+                }
+            } catch (e) {
+                console.error("Failed to list models", e);
+            }
+        }
+
+        function appendMessage(role, text) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message ${role}`;
+
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'content';
+
+            if (role === 'bot') {
+                const avatar = document.createElement('div');
+                avatar.className = 'avatar';
+                // avatar.textContent = '🤓'; // Emoji removed
+                msgDiv.appendChild(avatar);
+
+                // Parse Markdown
+                contentDiv.innerHTML = marked.parse(text);
+            } else {
+                contentDiv.textContent = text;
+            }
+
+            msgDiv.appendChild(contentDiv);
+            chatContainer.appendChild(msgDiv);
+
+            // Scroll to bottom
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function setLoading(loading) {
+            typingIndicator.style.display = loading ? 'block' : 'none';
+        }
+
+        async function loadKnowledgeBase() {
+            try {
+                // Check if global data is available (from knowledge.js)
+                if (!window.SEARCH_DOCS || !Array.isArray(window.SEARCH_DOCS)) {
+                    console.log("knowledge.js not loaded or empty.");
+                    // Fallback to fetch if valid (legacy/server mode)
+                    // But for now, just warn.
+                    return;
+                }
+
+                const statusDiv = document.createElement('div');
+                statusDiv.id = 'kb-status';
+                statusDiv.style.cssText = "position:absolute; top:20px; right:20px; font-size:12px; color:#555; background:#eee; padding:5px 10px; border-radius:4px; z-index:100; opacity:0.8;";
+                statusDiv.innerText = "⏳ Indexing Knowledge Base...";
+                document.body.appendChild(statusDiv);
+
+                // Allow UI to render
+                await new Promise(r => setTimeout(r, 100));
+
+                searchDocs = window.SEARCH_DOCS;
+
+                // Initialize MiniSearch
+                miniSearch = new MiniSearch({
+                    fields: ['title', 'content'],
+                    storeFields: ['title', 'content'],
+                    idField: 'id'
+                });
+
+                miniSearch.addAll(searchDocs);
+
+                console.log(`Knowledge Base loaded: ${searchDocs.length} chunks.`);
+                statusDiv.innerText = `📚 ${searchDocs.length} Journal Chunks Indexed`;
+                statusDiv.style.background = "#e6ffe6";
+                statusDiv.style.color = "#005500";
+
+                // Fade out
+                setTimeout(() => {
+                    statusDiv.style.transition = 'opacity 1s';
+                    statusDiv.style.opacity = '0';
+                    setTimeout(() => statusDiv.remove(), 1000);
+                }, 5000);
+
+            } catch (e) {
+                console.log("Failed to load knowledge base", e);
+                const s = document.getElementById('kb-status');
+                if (s) s.innerText = "Error loading Knowledge Base";
+            }
+        }
+
+        // Initialize
+        loadKnowledgeBase();
+    </script>
+
+</body>
+
+</html>
