@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speed Reader</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container">
+
+
+        <main>
+            <div id="reader-display" class="reader-display">
+                <span id="current-word">Ready</span>
+                <div id="sentence-display" class="sentence-display hidden"></div>
+                <button id="btn-focus-context" class="focus-context-btn" title="Toggle Sentence Context">A</button>
+                <button id="btn-focus-close" class="focus-close-btn" title="Exit Focus Mode">×</button>
+
+                <!-- Invisible Touch Zones -->
+                <div id="touch-left" class="touch-zone" title="Rewind"></div>
+                <div id="touch-center" class="touch-zone" title="Play/Pause"></div>
+                <div id="touch-right" class="touch-zone" title="Forward"></div>
+            </div>
+
+            <div class="controls">
+                <div class="control-group">
+                    <button id="btn-toggle-play" class="btn btn-primary" title="Play/Pause">▶</button>
+                    <button id="btn-reset" class="btn btn-secondary">Reset</button>
+                    <div class="divider"></div>
+                    <label for="wpm-input">WPM:</label>
+                    <input type="number" id="wpm-input" value="300" min="50" max="1000" step="10">
+                </div>
+                <div class="control-group">
+                    <button id="btn-focus" class="btn btn-secondary" title="Focus Mode (Hide UI)">⛶</button>
+                    <button id="btn-font-plus" class="btn btn-secondary" title="Increase Font">A+</button>
+                    <button id="btn-font-minus" class="btn btn-secondary" title="Decrease Font">A-</button>
+                    <div class="divider"></div>
+                    <button id="btn-theme-cycle" class="btn btn-secondary">Color</button>
+                </div>
+            </div>
+
+            <div class="source-container">
+                <div id="source-text" class="source-text" contenteditable="true" spellcheck="false"></div>
+            </div>
+        </main>
+    </div>
+    <script src="script.js"></script>
+</body>
+
+</html>

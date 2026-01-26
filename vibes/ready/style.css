@@ -1,0 +1,449 @@
+:root {
+    box-sizing: border-box;
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: inherit;
+}
+
+:root {
+    --primary-color: #2563eb;
+    --primary-hover: #1d4ed8;
+    --bg-color: #f8fafc;
+    --card-bg: #ffffff;
+    --text-color: #1e293b;
+    --border-color: #e2e8f0;
+    --highlight-color: #fef08a;
+    /* Soft yellow */
+    --secondary-bg: #e2e8f0;
+    --secondary-text: #475569;
+    --secondary-hover: #cbd5e1;
+    --input-bg: #ffffff;
+    --input-text: #1e293b;
+}
+
+/* Night Mode Theme */
+body.theme-night {
+    --primary-color: #60a5fa;
+    --primary-hover: #3b82f6;
+    --bg-color: #0f172a;
+    --card-bg: #1e293b;
+    --text-color: #f1f5f9;
+    --border-color: #334155;
+    --highlight-color: #ca8a04;
+    /* Darker yellow/gold */
+    --secondary-bg: #334155;
+    --secondary-text: #f1f5f9;
+    --secondary-hover: #475569;
+    --input-bg: #334155;
+    --input-text: #f1f5f9;
+}
+
+/* Soft Colors Theme */
+body.theme-soft {
+    --primary-color: #d97706;
+    /* Amber */
+    --primary-hover: #b45309;
+    --bg-color: #fdf6e3;
+    /* Solarized light base */
+    --card-bg: #eee8d5;
+    --text-color: #586e75;
+    --border-color: #d6d3c8;
+    --highlight-color: #fcd34d;
+    /* Warm yellow */
+    --secondary-bg: #d6d3c8;
+    --secondary-text: #586e75;
+    --secondary-hover: #c9c6bc;
+    --input-bg: #fdf6e3;
+    --input-text: #586e75;
+}
+
+/* Black Theme */
+body.theme-black {
+    --primary-color: #60a5fa;
+    --primary-hover: #3b82f6;
+    --bg-color: #000000;
+    --card-bg: #000000;
+    --text-color: #ffffff;
+    --border-color: #333333;
+    --highlight-color: #555555;
+    /* Dark grey highlight */
+    --secondary-bg: #333333;
+    --secondary-text: #ffffff;
+    --secondary-hover: #444444;
+    --input-bg: #222222;
+    --input-text: #ffffff;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    margin: 0;
+    padding: 2rem;
+    line-height: 1.5;
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+
+
+.reader-display {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+    margin-bottom: 1.5rem;
+    position: relative;
+    /* For absolute positioning of context */
+}
+
+.sentence-display {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    right: 20px;
+    text-align: center;
+    font-size: 1.25rem;
+    color: var(--text-color);
+    opacity: 0.6;
+    pointer-events: none;
+    transition: opacity 0.3s;
+}
+
+.sentence-display.hidden {
+    opacity: 0;
+}
+
+#current-word {
+    font-size: 4rem;
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    background-color: var(--card-bg);
+    padding: 1rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.control-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.divider {
+    display: none;
+}
+
+.btn {
+    padding: 0 1rem;
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    border: none;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    line-height: 1;
+    /* Reset line-height to avoid shifts */
+}
+
+.btn-primary {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: var(--primary-hover);
+}
+
+#btn-toggle-play {
+    min-width: 80px;
+    text-align: center;
+}
+
+.btn-secondary {
+    background-color: var(--secondary-bg);
+    color: var(--secondary-text);
+}
+
+.btn-secondary:hover {
+    background-color: var(--secondary-hover);
+}
+
+input[type="number"] {
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    width: 80px;
+    background-color: var(--input-bg);
+    color: var(--input-text);
+}
+
+.source-container {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1rem;
+    min-height: 300px;
+    /* Ensure bottom margin matches top visual spacing */
+    margin-bottom: 2rem;
+}
+
+.source-text {
+    outline: none;
+    min-height: 300px;
+    /* Limit height relative to viewport to prevent endless growing */
+    max-height: calc(100vh - 420px);
+    overflow-y: auto;
+    font-size: 1.125rem;
+    line-height: 1.8;
+    color: var(--text-color);
+    white-space: pre-wrap;
+}
+
+.highlight {
+    background-color: var(--highlight-color);
+    border-radius: 4px;
+    transition: background-color 0.1s;
+}
+
+/* Scrollbar styling */
+.source-text::-webkit-scrollbar {
+    width: 8px;
+}
+
+.source-text::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+
+/* Focus Mode */
+body.focus-mode .controls,
+body.focus-mode .source-container,
+body.focus-mode .divider {
+    display: none !important;
+}
+
+body.focus-mode .container {
+    max-width: none;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    padding: 0;
+}
+
+body.focus-mode .reader-display {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    border: none;
+    box-shadow: none;
+    background: var(--bg-color);
+    /* Ensure opacity to hide valid bg */
+    margin: 0;
+    z-index: 50;
+    /* Ensure on top */
+}
+
+.sentence-display {
+    position: absolute;
+    bottom: 50px;
+    /* Increased from 20px */
+    left: 20px;
+    right: 20px;
+    text-align: center;
+    font-size: 1rem;
+    color: var(--text-color);
+    opacity: 0.6;
+    pointer-events: none;
+    transition: opacity 0.3s;
+    height: 1.5em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sentence-display.hidden {
+    opacity: 0;
+}
+
+.focus-context-btn {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    bottom: auto;
+    right: auto;
+    background: transparent;
+    border: none;
+    color: var(--text-color);
+    font-size: 1.5rem;
+    cursor: pointer;
+    opacity: 0.3;
+    padding: 10px;
+    line-height: 1;
+    z-index: 60;
+    /* Higher than touch zones */
+}
+
+.focus-context-btn:hover {
+    opacity: 0.8;
+}
+
+.focus-context-btn.hidden {
+    display: none;
+}
+
+.focus-close-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: transparent;
+    border: none;
+    color: var(--text-color);
+    font-size: 2rem;
+    cursor: pointer;
+    opacity: 0.3;
+    padding: 10px;
+    line-height: 1;
+    z-index: 60;
+    display: none;
+    /* Hidden by default */
+}
+
+.focus-close-btn:hover {
+    opacity: 0.8;
+}
+
+/* Show buttons ONLY in focus mode */
+body.focus-mode .focus-context-btn,
+body.focus-mode .focus-close-btn {
+    display: block;
+}
+
+/* Hide buttons when NOT in focus mode (override default block) */
+body:not(.focus-mode) .focus-context-btn,
+body:not(.focus-mode) .focus-close-btn {
+    display: none;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 600px) {
+    body {
+        padding: 1rem;
+    }
+
+    #current-word {
+        font-size: 2.5rem;
+    }
+
+
+    /* Force controls to exactly 1 line */
+    .controls {
+        flex-direction: row;
+        gap: 0.5rem;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.5rem;
+    }
+
+    .control-group {
+        flex-wrap: nowrap;
+        justify-content: flex-start;
+        gap: 0.25rem;
+    }
+
+    /* Hide Reset button and WPM label on mobile */
+    #btn-reset,
+    label[for="wpm-input"] {
+        display: none;
+    }
+
+    .btn {
+        padding: 0 0.5rem;
+        /* Remove vertical padding, rely on height */
+        min-width: 44px;
+        /* Sufficient touch target */
+        font-size: 1rem;
+    }
+
+    /* Adjust WPM input */
+    input[type="number"] {
+        width: 60px;
+        padding: 0.25rem;
+        font-size: 1rem;
+    }
+
+    #btn-font-plus,
+    #btn-font-minus {
+        min-width: 40px;
+        padding: 0.5rem;
+    }
+
+    #btn-font-plus,
+    #btn-font-minus {
+        min-width: 30px;
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    .divider {
+        display: none;
+    }
+}
+
+/* Invisible Touch Zones */
+.touch-zone {
+    display: none;
+    position: fixed;
+    top: 20%;
+    height: 60%;
+    z-index: 40;
+    /* Above background/text, below context button (z-index 50/10) */
+    /* background-color: rgba(255, 0, 0, 0.1); Debugging: see zones */
+}
+
+body.focus-mode .touch-zone {
+    display: block;
+}
+
+#touch-left {
+    left: 0;
+    width: 30%;
+    cursor: w-resize;
+    /* Hint at direction */
+}
+
+#touch-center {
+    left: 30%;
+    width: 40%;
+    cursor: pointer;
+}
+
+#touch-right {
+    right: 0;
+    width: 30%;
+    cursor: e-resize;
+}
